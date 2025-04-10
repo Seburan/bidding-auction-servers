@@ -53,13 +53,16 @@ function upload_image_to_repo() {
   local -r repo_image_uri="${gcp_image_repo}/${service}"
   local -r env_tag="${repo_image_uri}:${gcp_image_tag}"
   local -r git_tag="${repo_image_uri}:$(git -C "${WORKSPACE}" describe --tags --always || echo no-git-version)-${build_flavor}"
+  local -r latest_tag="${repo_image_uri}:latest"
+
 
   printf "==== Uploading local image to Artifact Repository %s =====\n" "${gcp_image_repo}"
   # Note: if the following commands fail, double check that the local environment has
   # authenticated to the repo.
   docker load -i "${WORKSPACE}/${server_image}"
 
-  local -a image_tags=("${env_tag}" "${git_tag}")
+  # Add the latest_tag to the array
+  local -a image_tags=("${env_tag}" "${git_tag}" "${latest_tag}")
   if [[ "${KOKORO_ENV_NAME}" == "staging" ]] && [[ "${KOKORO_ENV_JOB_TYPE}" == "continuous" ]]; then
     local -r version="$(cat "${WORKSPACE}/version.txt")"
     local -r release_tag="${repo_image_uri}:staging-release-${build_flavor}-${version}"
@@ -67,7 +70,9 @@ function upload_image_to_repo() {
   fi
 
   for tag in "${image_tags[@]}"; do
+    printf "Tagging ${local_image_uri} as ${tag}"
     docker tag "${local_image_uri}" "${tag}"
+    printf "Pushing ${tag}"
     docker push "${tag}"
   done
 
