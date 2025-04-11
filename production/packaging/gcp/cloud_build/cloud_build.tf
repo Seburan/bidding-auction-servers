@@ -34,6 +34,10 @@ resource "google_artifact_registry_repository" "cloudbuild_repo" {
   location    = var.artifact_registry_repo_location
   format      = "docker"
   repository_id = var.artifact_registry_repo_name
+
+  docker_config {
+    immutable_tags = false
+  }
 }
 
 resource "google_cloudbuild_trigger" "prod" {
