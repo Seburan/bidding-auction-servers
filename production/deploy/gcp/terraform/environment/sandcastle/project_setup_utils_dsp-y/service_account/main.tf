@@ -109,42 +109,44 @@ resource "google_project_iam_member" "trafficdirector_get_networks_configs" {
   member  = "serviceAccount:${google_service_account.workload_operator.email}"
 }
 
-resource "google_storage_hmac_key" "key" {
-  project               = var.project_id
-  service_account_email = google_service_account.workload_operator.email
-}
+# Commented the 5 resources below because it violates org constraint "constraints/iam.disableServiceAccountKeyCreation"
 
-resource "google_secret_manager_secret" "hmac_key" {
-  project = var.project_id
-  # If the following secret_id is changed, make sure to update any usage of
-  # module.secrets.gcs_hmac_key.
-  secret_id = "gcs-hmac-key"
+# resource "google_storage_hmac_key" "key" {
+#   project               = var.project_id
+#   service_account_email = google_service_account.workload_operator.email
+# }
 
-  replication {
-    auto {}
-  }
-}
+# resource "google_secret_manager_secret" "hmac_key" {
+#   project = var.project_id
+#   # If the following secret_id is changed, make sure to update any usage of
+#   # module.secrets.gcs_hmac_key.
+#   secret_id = "gcs-hmac-key"
 
-resource "google_secret_manager_secret_version" "hmac_key_version" {
-  secret      = google_secret_manager_secret.hmac_key.id
-  secret_data = google_storage_hmac_key.key.access_id
-}
+#   replication {
+#     auto {}
+#   }
+# }
 
-resource "google_secret_manager_secret" "hmac_secret" {
-  project = var.project_id
-  # If the following secret_id is changed, make sure to update any usage of
-  # module.secrets.gcs-hmac-secret.
-  secret_id = "gcs-hmac-secret"
+# resource "google_secret_manager_secret_version" "hmac_key_version" {
+#   secret      = google_secret_manager_secret.hmac_key.id
+#   secret_data = google_storage_hmac_key.key.access_id
+# }
 
-  replication {
-    auto {}
-  }
-}
+# resource "google_secret_manager_secret" "hmac_secret" {
+#   project = var.project_id
+#   # If the following secret_id is changed, make sure to update any usage of
+#   # module.secrets.gcs-hmac-secret.
+#   secret_id = "gcs-hmac-secret"
 
-resource "google_secret_manager_secret_version" "hmac_secret_version" {
-  secret      = google_secret_manager_secret.hmac_secret.id
-  secret_data = google_storage_hmac_key.key.secret
-}
+#   replication {
+#     auto {}
+#   }
+# }
+
+# resource "google_secret_manager_secret_version" "hmac_secret_version" {
+#   secret      = google_secret_manager_secret.hmac_secret.id
+#   secret_data = google_storage_hmac_key.key.secret
+# }
 
 output "service_account_full_name" {
   value = "${google_service_account.workload_operator.display_name}@${google_service_account.workload_operator.project}.iam.gserviceaccount.com"
