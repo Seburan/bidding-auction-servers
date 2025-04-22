@@ -41,4 +41,33 @@ jobs:
         if: always()       # Always sync tags, even if sync or checkout fails
         run: |
           git fetch https://github.com/privacysandbox/bidding-auction-servers --tags --force
+
+          echo "Finding the latest tag (using version sort)..."
+          # Sort tags using version sorting (e.g., v1.10.0 > v1.9.0).
+          # Use --sort=-creatordate for chronological sorting if preferred.
+          LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
+
+          # Check if any tag was found
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found in upstream. Skipping 'latest' tag creation."
+          else
+            echo "Latest tag identified: $LATEST_TAG"
+
+            # Delete the 'latest' tag locally and remotely if it exists
+            echo "Deleting old 'latest' tag locally (if exists)..."
+            git tag -d latest || true
+            echo "Deleting old 'latest' tag remotely (if exists)..."
+            # Use the default origin (your fork)
+            git push origin :refs/tags/latest || true
+
+            # Create the new 'latest' tag pointing to the same commit as LATEST_TAG
+            echo "Creating new 'latest' tag pointing to $LATEST_TAG..."
+            git tag latest $LATEST_TAG
+          fi
+
+          echo "Pushing all local tags (including fetched and new 'latest') to origin..."
+          # Push all local tags (fetched from upstream + new 'latest') to your fork (origin)
+          # --force is needed to overwrite potentially existing tags on the origin
           git push origin --tags --force
+
+          echo "Tags synced and 'latest' tag updated to point to $LATEST_TAG."
