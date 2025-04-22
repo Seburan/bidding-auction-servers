@@ -12,27 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-output "frontend_certificate_map_id" {
-  value = module.domain.frontend_certificate_map_id
-}
+# output "frontend_certificate_map_id" {
+#   value = module.domain.frontend_certificate_map_id
+# }
 
-output "domain" {
-  value = module.domain.domain
-}
+# output "domain" {
+#   value = module.domain.domain
+# }
 
-output "bfe_dns_zone" {
-  value = module.domain.bfe_dns_zone
-}
+# output "bfe_dns_zone" {
+#   value = module.domain.bfe_dns_zone
+# }
 
-output "sfe_dns_zone" {
-  value = module.domain.sfe_dns_zone
-}
+# output "sfe_dns_zone" {
+#   value = module.domain.sfe_dns_zone
+# }
 
 
-output "zone_url" {
-  value = module.domain.zone_url
-}
+# output "zone_url" {
+#   value = module.domain.zone_url
+# }
 
-output "service_account_full_name" {
-  value = module.service_account.service_account_full_name
-}
+# output "service_account_full_name" {
+#   value = module.service_account.service_account_full_name
+# }
