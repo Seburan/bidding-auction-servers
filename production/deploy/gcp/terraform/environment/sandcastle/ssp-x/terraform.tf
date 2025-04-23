@@ -25,4 +25,8 @@ terraform {
       version = "5.36.0"
     }
   }
+  backend "gcs" {
+    bucket = "gtech-privacy-baservices-dev-state"
+    prefix = "services/ssp-x"
+  }
 }
