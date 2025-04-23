@@ -319,7 +319,7 @@ module "seller" {
 }
 
 module "seller_frontend_load_balancing" {
-  source               = "../../services/frontend_load_balancing"
+  source               = "../../../services/frontend_load_balancing"
   environment          = local.environment
   operator             = local.seller_operator
   frontend_ip_address  = module.seller[local.environment].frontend_address
@@ -339,14 +339,14 @@ module "seller_frontend_load_balancing" {
 }
 
 module "seller_dashboard" {
-  source = "../../services/dashboards/seller_dashboard"
+  source = "../../../services/dashboards/seller_dashboard"
   environment = join("|", concat(
     [for k, v in local.seller_traffic_splits : k if v.traffic_weight > 0],
   [for k, v in local.seller_header_experiment : k if length(v.match_rules) > 0]))
 }
 
 module "log_based_metric" {
-  source      = "../../services/log_based_metric"
+  source      = "../../../services/log_based_metric"
   environment = local.environment
 }
 

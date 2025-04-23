@@ -338,7 +338,7 @@ module "buyer" {
 }
 
 module "buyer_frontend_load_balancing" {
-  source               = "../../services/frontend_load_balancing"
+  source               = "../../../services/frontend_load_balancing"
   environment          = local.environment
   operator             = local.buyer_operator
   frontend_ip_address  = module.buyer[local.environment].frontend_address
@@ -358,35 +358,35 @@ module "buyer_frontend_load_balancing" {
 }
 
 module "buyer_dashboard" {
-  source = "../../services/dashboards/buyer_dashboard"
+  source = "../../../services/dashboards/buyer_dashboard"
   environment = join("|", concat(
     [for k, v in local.buyer_traffic_splits : k if v.traffic_weight > 0],
   [for k, v in local.buyer_header_experiment : k if length(v.match_rules) > 0]))
 }
 
 module "inference_dashboard" {
-  source = "../../services/dashboards/inference_dashboard"
+  source = "../../../services/dashboards/inference_dashboard"
   environment = join("|", concat(
     [for k, v in local.buyer_traffic_splits : k if v.traffic_weight > 0],
   [for k, v in local.buyer_header_experiment : k if length(v.match_rules) > 0]))
 }
 
 module "roma_dashboard" {
-  source = "../../services/dashboards/roma_dashboard"
+  source = "../../../services/dashboards/roma_dashboard"
   environment = join("|", concat(
     [for k, v in local.buyer_traffic_splits : k if v.traffic_weight > 0],
   [for k, v in local.buyer_header_experiment : k if length(v.match_rules) > 0]))
 }
 
 module "k_anon_dashboard" {
-  source = "../../services/dashboards/k_anon_dashboard"
+  source = "../../../services/dashboards/k_anon_dashboard"
   environment = join("|", concat(
     [for k, v in local.buyer_traffic_splits : k if v.traffic_weight > 0],
   [for k, v in local.buyer_header_experiment : k if length(v.match_rules) > 0]))
 }
 
 module "log_based_metric" {
-  source      = "../../services/log_based_metric"
+  source      = "../../../services/log_based_metric"
   environment = local.environment
 }
 
