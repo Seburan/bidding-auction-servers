@@ -24,9 +24,9 @@ output "bfe_dns_zone" {
   value = module.domain.bfe_dns_zone
 }
 
-output "sfe_dns_zone" {
-  value = module.domain.sfe_dns_zone
-}
+# output "sfe_dns_zone" {
+#   value = module.domain.sfe_dns_zone
+# }
 
 
 output "zone_url" {

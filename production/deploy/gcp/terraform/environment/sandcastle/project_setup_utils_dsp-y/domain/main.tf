@@ -45,11 +45,11 @@ resource "google_dns_managed_zone" "bfe" {
   description = "Subdomain DNS zone for bfe.${var.domain}"
 }
 
-resource "google_dns_managed_zone" "sfe" {
-  name        = "sfe-${local.tld_zone_name}"
-  dns_name    = "sfe.${var.domain}."
-  description = "Subdomain DNS zone for sfe.${var.domain}"
-}
+# resource "google_dns_managed_zone" "sfe" {
+#   name        = "sfe-${local.tld_zone_name}"
+#   dns_name    = "sfe.${var.domain}."
+#   description = "Subdomain DNS zone for sfe.${var.domain}"
+# }
 
 # Data sources to fetch NS records (Terraform equivalent of the 'grep' and 'awk' in the Bash script)
 data "google_dns_record_set" "bfe_ns" {
@@ -61,14 +61,14 @@ data "google_dns_record_set" "bfe_ns" {
   depends_on = [google_dns_managed_zone.bfe]
 }
 
-data "google_dns_record_set" "sfe_ns" {
-  managed_zone = google_dns_managed_zone.sfe.name
-  name         = "sfe.${var.domain}."
-  type         = "NS"
+# data "google_dns_record_set" "sfe_ns" {
+#   managed_zone = google_dns_managed_zone.sfe.name
+#   name         = "sfe.${var.domain}."
+#   type         = "NS"
 
-  # Depends on the sfe zone creation to ensure it exists
-  depends_on = [google_dns_managed_zone.sfe]
-}
+#   # Depends on the sfe zone creation to ensure it exists
+#   depends_on = [google_dns_managed_zone.sfe]
+# }
 
 # Add NS records to the primary zone
 resource "google_dns_record_set" "bfe_ns_primary" {
@@ -78,18 +78,18 @@ resource "google_dns_record_set" "bfe_ns_primary" {
   rrdatas      = data.google_dns_record_set.bfe_ns.rrdatas
 }
 
-resource "google_dns_record_set" "sfe_ns_primary" {
-  managed_zone = google_dns_managed_zone.primary.name
-  name         = "sfe.${var.domain}."
-  type         = "NS"
-  rrdatas      = data.google_dns_record_set.sfe_ns.rrdatas
-}
+# resource "google_dns_record_set" "sfe_ns_primary" {
+#   managed_zone = google_dns_managed_zone.primary.name
+#   name         = "sfe.${var.domain}."
+#   type         = "NS"
+#   rrdatas      = data.google_dns_record_set.sfe_ns.rrdatas
+# }
 
 # DNS Authorizations for TLS certificates
-resource "google_certificate_manager_dns_authorization" "sfe" {
-  name   = "sfe-dns-auth-${local.tld_zone_name}"
-  domain = "sfe.${var.domain}"
-}
+# resource "google_certificate_manager_dns_authorization" "sfe" {
+#   name   = "sfe-dns-auth-${local.tld_zone_name}"
+#   domain = "sfe.${var.domain}"
+# }
 
 resource "google_certificate_manager_dns_authorization" "bfe" {
   name   = "bfe-dns-auth-${local.tld_zone_name}"
@@ -99,15 +99,15 @@ resource "google_certificate_manager_dns_authorization" "bfe" {
 # Add DNS authorization records to subdomain zones
 # (Note: Terraform doesn't have a direct equivalent for 'gcloud dns record-sets transaction',
 #  so we're creating the records directly)
-resource "google_dns_record_set" "sfe_acme_challenge" {
-  managed_zone = google_dns_managed_zone.sfe.name
-  name         = "_acme-challenge.sfe.${var.domain}."
-  type         = "CNAME"
-  rrdatas      = [google_certificate_manager_dns_authorization.sfe.dns_resource_record.0.data]
+# resource "google_dns_record_set" "sfe_acme_challenge" {
+#   managed_zone = google_dns_managed_zone.sfe.name
+#   name         = "_acme-challenge.sfe.${var.domain}."
+#   type         = "CNAME"
+#   rrdatas      = [google_certificate_manager_dns_authorization.sfe.dns_resource_record.0.data]
 
-  # Depends on the DNS authorization to ensure it's created first
-  depends_on = [google_certificate_manager_dns_authorization.sfe]
-}
+#   # Depends on the DNS authorization to ensure it's created first
+#   depends_on = [google_certificate_manager_dns_authorization.sfe]
+# }
 
 resource "google_dns_record_set" "bfe_acme_challenge" {
   managed_zone = google_dns_managed_zone.bfe.name
@@ -124,14 +124,14 @@ resource "google_certificate_manager_certificate" "wildcard" {
   name = "wildcard-${local.tld_zone_name}-cert"
   managed {
     domains = [
-      "*.sfe.${var.domain}",
-      "sfe.${var.domain}",
+      # "*.sfe.${var.domain}",
+      # "sfe.${var.domain}",
       "*.bfe.${var.domain}",
       "bfe.${var.domain}"
     ]
 
     dns_authorizations = [
-      google_certificate_manager_dns_authorization.sfe.id,
+      # google_certificate_manager_dns_authorization.sfe.id,
       google_certificate_manager_dns_authorization.bfe.id
     ]
   }
@@ -143,12 +143,12 @@ resource "google_certificate_manager_certificate_map" "wildcard" {
 }
 
 # Create certificate map entries
-resource "google_certificate_manager_certificate_map_entry" "sfe" {
-  name         = "${google_certificate_manager_certificate.wildcard.name}-map-entry-sfe"
-  map          = google_certificate_manager_certificate_map.wildcard.name
-  certificates = [google_certificate_manager_certificate.wildcard.id]
-  hostname     = "*.sfe.${var.domain}"
-}
+# resource "google_certificate_manager_certificate_map_entry" "sfe" {
+#   name         = "${google_certificate_manager_certificate.wildcard.name}-map-entry-sfe"
+#   map          = google_certificate_manager_certificate_map.wildcard.name
+#   certificates = [google_certificate_manager_certificate.wildcard.id]
+#   hostname     = "*.sfe.${var.domain}"
+# }
 
 resource "google_certificate_manager_certificate_map_entry" "bfe" {
   name         = "${google_certificate_manager_certificate.wildcard.name}-map-entry-bfe"
@@ -169,9 +169,9 @@ output "bfe_dns_zone" {
   value = google_dns_managed_zone.bfe.name
 }
 
-output "sfe_dns_zone" {
-  value = google_dns_managed_zone.sfe.name
-}
+# output "sfe_dns_zone" {
+#   value = google_dns_managed_zone.sfe.name
+# }
 
 
 output "zone_url" {
