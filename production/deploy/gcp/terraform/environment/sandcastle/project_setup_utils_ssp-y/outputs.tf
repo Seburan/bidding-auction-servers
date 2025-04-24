@@ -20,9 +20,9 @@ output "domain" {
   value = module.domain.domain
 }
 
-output "bfe_dns_zone" {
-  value = module.domain.bfe_dns_zone
-}
+# output "bfe_dns_zone" {
+#   value = module.domain.bfe_dns_zone
+# }
 
 output "sfe_dns_zone" {
   value = module.domain.sfe_dns_zone
