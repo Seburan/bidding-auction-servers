@@ -13,10 +13,15 @@
 # limitations under the License.
 
 locals {
-  gcp_project_id  = "" # Example: "your-gcp-project-123"
-  environment     = "" # Must be <= 3 characters. Example: "abc"
-  image_repo      = "" # Example: "us-docker.pkg.dev/your-gcp-project-123/services"
-  seller_operator = "" # Example: "seller-1"
+  gcp_project_id  = "gtech-privacy-baservices-dev" # Example: "your-gcp-project-123"
+  environment     = "dev" # Must be <= 3 characters. Example: "abc"
+  image_repo      = "us-central1-docker.pkg.dev/gtech-privacy-baservices-dev/bidding-auction-servers-image-repo/non-prod" # Example: "us-docker.pkg.dev/your-gcp-project-123/services"
+  seller_operator = "ssp-x" # Example: "seller-1"
+  gcs_hmac_key_name    = "gcs-hmac-key-${local.seller_operator}"
+  gcs_hmac_secret_name = "gcs-hmac-secret-${local.seller_operator}"
+  tls_key_name  = "envoy-tls-termination-key-${local.seller_operator}"
+  tls_cert_name = "envoy-tls-termination-cert-${local.seller_operator}"
+
   default_region_config = {
     # Example config provided for us-central1 and you may add your own regions.
     "us-central1" = {
@@ -48,11 +53,11 @@ locals {
   # Please create a Google Cloud domain name, dns zone, and SSL certificate.
   # See demo/project_setup_utils/domain_setup/README.md for more details.
   # If you specify a certificate_map_id, you do not need to specify an ssl_certificate_id.
-  frontend_domain_ssl_certificate_id = "" # Example: "projects/${local.gcp_project_id}/global/sslCertificates/sfe-${local.environment}"
-  frontend_certificate_map_id        = "" # Example: "//certificatemanager.googleapis.com/projects/test/locations/global/certificateMaps/wildcard-cert-map"
+  frontend_domain_ssl_certificate_id = "projects/gtech-privacy-baservices-dev/locations/global/certificates/wildcard-privacy-sandbox-demos-ssp-x-dev-cert" # Example: "projects/${local.gcp_project_id}/global/sslCertificates/sfe-${local.environment}"
+  frontend_certificate_map_id        = "//certificatemanager.googleapis.com/projects/gtech-privacy-baservices-dev/locations/global/certificateMaps/wildcard-privacy-sandbox-demos-ssp-x-dev-cert-map" # Example: "//certificatemanager.googleapis.com/projects/test/locations/global/certificateMaps/wildcard-cert-map"
   frontend_ssl_policy_id             = "" # Example: "projects/${local.gcp_project_id}/global/sslPolicies/sfe-ssl-policy
-  seller_domain_name                 = "" # Example: sfe-gcp.com
-  frontend_dns_zone                  = "" # Example: "sfe-gcp-com"
+  seller_domain_name                 = "sfe.privacy-sandbox-demos-ssp-x.dev" # Example: sfe-gcp.com
+  frontend_dns_zone                  = "sfe-privacy-sandbox-demos-ssp-x-dev" # Example: "sfe-gcp-com"
 
   seller_traffic_splits = {
     # default
@@ -118,6 +123,11 @@ resource "google_compute_project_metadata" "default" {
 # See README.md for instructions on how to use the secrets module.
 module "secrets" {
   source = "../../../modules/secrets"
+
+  gcs_hmac_key = local.gcs_hmac_key_name
+  gcs_hmac_secret = local.gcs_hmac_secret_name
+  tls_key  = local.tls_key_name
+  tls_cert = local.tls_cert_name
 }
 
 module "seller" {
@@ -133,7 +143,7 @@ module "seller" {
   gcp_project_id        = local.gcp_project_id
   auction_image         = "${local.image_repo}/auction_service:${each.value.image_tag}"
   seller_frontend_image = "${local.image_repo}/seller_frontend_service:${each.value.image_tag}"
-  fakekv_service_port   = 1900 # Ignore this.
+  # fakekv_service_port   = 1900 # Ignore this.
 
   envoy_port = 51052 # Do not change. Must match production/packaging/gcp/seller_frontend_service/bin/envoy.yaml
   runtime_flags = merge({
@@ -147,63 +157,62 @@ module "seller" {
     # Note: Setting this flag to true will disable validation of buyerReportWinJsUrls.
     TEST_MODE = "false" # Do not change unless you are testing without key fetching.
 
-    ENABLE_AUCTION_SERVICE_BENCHMARK = ""            # Example: "false"
-    GET_BID_RPC_TIMEOUT_MS           = ""            # Example: "60000"
-    SCORE_ADS_RPC_TIMEOUT_MS         = ""            # Example: "60000"
-    SELLER_ORIGIN_DOMAIN             = ""            # Example: "https://sellerorigin.com"
+    ENABLE_AUCTION_SERVICE_BENCHMARK = "false"            # Example: "false"
+    GET_BID_RPC_TIMEOUT_MS           = "60000"            # Example: "60000"
+    SCORE_ADS_RPC_TIMEOUT_MS         = "60000"            # Example: "60000"
+    SELLER_ORIGIN_DOMAIN             = "https://privacy-sandbox-demos-ssp-x.dev"            # Example: "https://sellerorigin.com"
     K_ANON_API_KEY                   = "PLACEHOLDER" # API Key used to query k-anon service.
 
     # [BEGIN] Trusted KV real time signal fetching params
-    ENABLE_TKV_V2_BROWSER                  = ""            # Example: "false", Whether or not to use a trusted KV for browser clients. (Android clients traffic always need a trusted KV.)
-    TKV_EGRESS_TLS                         = ""            # Example: "false", Whether or not to use TLS when talking to TKV. (Useful when TKV is not in the same VPC/mesh)
+    ENABLE_TKV_V2_BROWSER                  = "false"            # Example: "false", Whether or not to use a trusted KV for browser clients. (Android clients traffic always need a trusted KV.)
+    TKV_EGRESS_TLS                         = "false"            # Example: "false", Whether or not to use TLS when talking to TKV. (Useful when TKV is not in the same VPC/mesh)
     TRUSTED_KEY_VALUE_V2_SIGNALS_HOST      = "PLACEHOLDER" # Example: "dns:///keyvaluesignals:443", Address where the TKV is listening.
-    KEY_VALUE_SIGNALS_FETCH_RPC_TIMEOUT_MS = ""            # Example: "60000"
+    KEY_VALUE_SIGNALS_FETCH_RPC_TIMEOUT_MS = "60000"            # Example: "60000"
     # [END] Trusted KV real time signal fetching params
 
     # [BEGIN] Untrusted KV real time signal fetching params
-    KEY_VALUE_SIGNALS_HOST = "" # Example: "https://keyvaluesignals.com/trusted-signals"
+    KEY_VALUE_SIGNALS_HOST = "https://privacy-sandcastle-dev-ssp-x.web.app/ssp/usecase/bidding-and-auction/ssp-x/service/kv " # Example: "https://keyvaluesignals.com/trusted-signals"
     # [END] Untrusted KV real time signal fetching params
 
-    BUYER_SERVER_HOSTS                  = "" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
-    SELLER_CLOUD_PLATFORMS_MAP          = "" # Example: "{ \"https://partner-seller1.com\": "GCP", \"https://partner-seller2.com\": "AWS"}"
-    ENABLE_SELLER_FRONTEND_BENCHMARKING = "" # Example: "false"
-    ENABLE_AUCTION_COMPRESSION          = "" # Example: "false"
-    ENABLE_BUYER_COMPRESSION            = "" # Example: "false"
-    ENABLE_PROTECTED_APP_SIGNALS        = "" # Example: "false"
-    ENABLE_PROTECTED_AUDIENCE           = "" # Example: "true"
-    PS_VERBOSITY                        = "" # Example: "10"
-    CREATE_NEW_EVENT_ENGINE             = "" # Example: "false"
-    SELLER_CODE_FETCH_CONFIG            = "" # Example:
-    # "{
-    #     "fetchMode": 0,
-    #     "auctionJsPath": "",
-    #     "auctionJsUrl": "https://example.com/scoreAd.js",
-    #     "urlFetchPeriodMs": 13000000,
-    #     "urlFetchTimeoutMs": 30000,
-    #     "enableSellerDebugUrlGeneration": true,
-    #     "enableReportResultUrlGeneration": true,
-    #     "enableReportWinUrlGeneration": true,
-    #     "enablePrivateAggregateReporting": false,
-    #     "buyerReportWinJsUrls": {"https://buyerA_origin.com":"https://buyerA.com/generateBid.js",
-    #                              "https://buyerB_origin.com":"https://buyerB.com/generateBid.js",
-    #                              "https://buyerC_origin.com":"https://buyerC.com/generateBid.js"},
-    #     "protectedAppSignalsBuyerReportWinJsUrls": {"https://buyerA_origin.com":"https://buyerA.com/generateBid.js"}
-    #  }"
-    UDF_NUM_WORKERS                     = "" # Example: "64" Must be <=vCPUs in auction_machine_type.
-    JS_WORKER_QUEUE_LEN                 = "" # Example: "200".
-    ROMA_TIMEOUT_MS                     = "" # Example: "10000"
-    TELEMETRY_CONFIG                    = "" # Example: "mode: EXPERIMENT"
-    COLLECTOR_ENDPOINT                  = "" # Example: "collector-seller-1-${each.key}.sfe-gcp.com:4317"
-    ENABLE_OTEL_BASED_LOGGING           = "" # Example: "false"
-    CONSENTED_DEBUG_TOKEN               = "" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
+    BUYER_SERVER_HOSTS                  = "{ \"https://privacy-sandbox-demos-dsp-x.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-x:443\", \"cloudPlatform\": \"GCP\" }, \"https://privacy-sandbox-demos-dsp-y.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-y:443\", \"cloudPlatform\": \"GCP\" } }" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
+    SELLER_CLOUD_PLATFORMS_MAP          = "PLACEHOLDER" # Example: "{ \"https://partner-seller1.com\": "GCP", \"https://partner-seller2.com\": "AWS"}"
+    ENABLE_SELLER_FRONTEND_BENCHMARKING = "false" # Example: "false"
+    ENABLE_AUCTION_COMPRESSION          = "false" # Example: "false"
+    ENABLE_BUYER_COMPRESSION            = "false" # Example: "false"
+    ENABLE_PROTECTED_APP_SIGNALS        = "false" # Example: "false"
+    ENABLE_PROTECTED_AUDIENCE           = "true" # Example: "true"
+    PS_VERBOSITY                        = "10" # Example: "10"
+    CREATE_NEW_EVENT_ENGINE             = "false" # Example: "false"
+    SELLER_CODE_FETCH_CONFIG            = jsonencode({
+        "fetchMode": 0,
+        "auctionJsPath": "",
+        "auctionJsUrl": "https://privacy-sandcastle-dev-ssp-x.web.app/js/ssp/usecase/bidding-and-auction/ssp-x/decision-logic.js ",
+        "urlFetchPeriodMs": 13000000,
+        "urlFetchTimeoutMs": 30000,
+        "enableSellerDebugUrlGeneration": true,
+        "enableReportResultUrlGeneration": true,
+        "enableReportWinUrlGeneration": true,
+        "enablePrivateAggregateReporting": false,
+        "buyerReportWinJsUrls": {"https://privacy-sandbox-demos-dsp-x.dev":"https://privacy-sandbox-demos-dsp-x.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js",
+                                 "https://privacy-sandbox-demos-dsp-y.dev":"https://privacy-sandbox-demos-dsp-y.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js"
+                                 }
+        # "protectedAppSignalsBuyerReportWinJsUrls": {"https://buyerA_origin.com":"https://buyerA.com/generateBid.js"}
+     })
+    UDF_NUM_WORKERS                     = "64" # Example: "64" Must be <=vCPUs in auction_machine_type.
+    JS_WORKER_QUEUE_LEN                 = "200" # Example: "200".
+    ROMA_TIMEOUT_MS                     = "10000" # Example: "10000"
+    TELEMETRY_CONFIG                    = "mode: EXPERIMENT" # Example: "mode: EXPERIMENT"
+    COLLECTOR_ENDPOINT                  = "collector-ssp-x-${each.key}.sfe.privacy-sandcastle-dev-ssp-x.web.app:4317" # Example: "collector-seller-1-${each.key}.sfe-gcp.com:4317"
+    ENABLE_OTEL_BASED_LOGGING           = "false" # Example: "false"
+    CONSENTED_DEBUG_TOKEN               = "NA" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
     DEBUG_SAMPLE_RATE_MICRO             = "0"
-    ENABLE_REPORT_WIN_INPUT_NOISING     = "" # Example: "true"
-    K_ANON_TOTAL_NUM_HASH               = "" # Example: "1000"
-    EXPECTED_K_ANON_TO_NON_K_ANON_RATIO = "" # Example: "1.0"
-    K_ANON_CLIENT_TIME_OUT_MS           = "" # Example: "60000"
-    NUM_K_ANON_SHARDS                   = "" # Example: "1"
-    NUM_NON_K_ANON_SHARDS               = "" # Example: "1"
-    ENABLE_K_ANON_QUERY_CACHE           = "" # Example: "true"
+    ENABLE_REPORT_WIN_INPUT_NOISING     = "true" # Example: "true"
+    K_ANON_TOTAL_NUM_HASH               = "1000" # Example: "1000"
+    EXPECTED_K_ANON_TO_NON_K_ANON_RATIO = "1.0" # Example: "1.0"
+    K_ANON_CLIENT_TIME_OUT_MS           = "60000" # Example: "60000"
+    NUM_K_ANON_SHARDS                   = "1" # Example: "1"
+    NUM_NON_K_ANON_SHARDS               = "1" # Example: "1"
+    ENABLE_K_ANON_QUERY_CACHE           = "true" # Example: "true"
     # Coordinator-based attestation flags.
     # These flags are production-ready and you do not need to change them.
     # Reach out to the Privacy Sandbox B&A team to enroll with Coordinators.
@@ -231,8 +240,8 @@ module "seller" {
 
     SFE_TLS_KEY                        = module.secrets.tls_key  # You may remove the secrets module and instead either inline or use an auto.tfvars for this variable.
     SFE_TLS_CERT                       = module.secrets.tls_cert # You may remove the secrets module and instead either inline or use an auto.tfvars for this variable.
-    MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = ""                      # Example: "65536"
-    MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = ""                      # Example: "3000"
+    MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = "65536"                      # Example: "65536"
+    MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = "3000"                      # Example: "3000"
 
     # TCMalloc related config parameters.
     # See: https://github.com/google/tcmalloc/blob/master/docs/tuning.md
@@ -249,9 +258,9 @@ module "seller" {
     # Http headers in sfe request to be passed in bfe request, in lower case separated by comma without space.
     # Example:  HEADER_PASSED_TO_BUYER =  "exp-id,exp-id789"
 
-    ALLOW_COMPRESSED_AUCTION_CONFIG = "" # Example: "true"
-    ENABLE_PRIORITY_VECTOR          = "" # Example: "true"
-    ENABLE_BUYER_CACHING            = "" # Example: "true"
+    ALLOW_COMPRESSED_AUCTION_CONFIG = "true" # Example: "true"
+    ENABLE_PRIORITY_VECTOR          = "true" # Example: "true"
+    ENABLE_BUYER_CACHING            = "true" # Example: "true"
 
     ###### [BEGIN] Libcurl parameters.
     #
@@ -310,9 +319,9 @@ module "seller" {
     otel_collector_image_uri = "otel/opentelemetry-collector-contrib:0.105.0"
     gcs_hmac_key             = module.secrets.gcs_hmac_key
     gcs_hmac_secret          = module.secrets.gcs_hmac_secret
-    gcs_bucket               = "" # Example: ${name of a gcs bucket}
-    gcs_bucket_prefix        = "" # Example: "consented-eventmessage-${each.key}"
-    file_prefix              = "" # Example: local.seller_operator
+    gcs_bucket               = "tech-privacy-baservices-dev-collector" # Example: ${name of a gcs bucket}
+    gcs_bucket_prefix        = "consented-eventmessage-${each.key}" # Example: "consented-eventmessage-${each.key}"
+    file_prefix              = local.seller_operator # Example: local.seller_operator
   })
   region_config                     = each.value.region_config
   enable_tee_container_log_redirect = false
@@ -348,6 +357,7 @@ module "seller_dashboard" {
 module "log_based_metric" {
   source      = "../../../services/log_based_metric"
   environment = local.environment
+  operator = local.seller_operator
 }
 
 # use below to perform an in-place upgrade from pre 4.2 to 4.2 and after, replace $ENV with $local.environment value
