@@ -22,14 +22,24 @@ variable "gcs_hmac_secret" {
   description = "The name (secret_id) of the Secret Manager secret holding the GCS HMAC Secret value."
 }
 
+variable "tls_key" {
+  type        = string
+  description = "The name (secret_id) of the Secret Manager secret holding the TLS Private Key."
+}
+
+variable "tls_cert" {
+  type        = string
+  description = "The name (secret_id) of the Secret Manager secret holding the TLS Certificate."
+}
+
 data "google_secret_manager_secret_version" "tls_key" {
   provider = google-beta
-  secret   = "envoy-tls-termination-key"
+  secret   = var.tls_key
 }
 
 data "google_secret_manager_secret_version" "tls_cert" {
   provider = google-beta
-  secret   = "envoy-tls-termination-cert"
+  secret   = var.tls_cert
 }
 
 data "google_secret_manager_secret_version" "gcs_hmac_key" {

@@ -40,13 +40,15 @@ module "domain" {
   domain     = var.domain
 }
 
-# module "internal_tls" {
-#   source     = "./internal_tls"
-#   project_id = var.project_id
+module "internal_tls" {
+  source     = "./internal_tls"
+  project_id = var.project_id
+  operator   = var.operator
 
-#   # Make internal_dns depend on the api module
-#   depends_on = [module.api]
-# }
+  # Make internal_dns depend on the api module
+  depends_on = [module.api]
+}
+
 
 module "service_account" {
   source               = "./service_account"

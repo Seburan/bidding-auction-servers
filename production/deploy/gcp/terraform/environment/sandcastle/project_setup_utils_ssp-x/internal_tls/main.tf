@@ -17,9 +17,14 @@ variable "project_id" {
   description = "The ID of the project where the service account will be created."
 }
 
+variable "operator" {
+  type = string
+  description = "Name of the service operator. e.g. : buyer-1 or seller-1"
+}
+
 resource "google_secret_manager_secret" "envoy_tls_termination_key" {
   project   = var.project_id
-  secret_id = "envoy-tls-termination-key"
+  secret_id = "envoy-tls-termination-key-${var.operator}"
 
   replication {
     auto {}
@@ -62,7 +67,7 @@ EOT
 
 resource "google_secret_manager_secret" "envoy_tls_termination_cert" {
   project   = var.project_id
-  secret_id = "envoy-tls-termination-cert"
+  secret_id = "envoy-tls-termination-cert-${var.operator}"
 
   replication {
     auto {}
