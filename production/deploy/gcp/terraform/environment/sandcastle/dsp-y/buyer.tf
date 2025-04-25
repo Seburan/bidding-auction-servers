@@ -13,10 +13,15 @@
 # limitations under the License.
 
 locals {
-  gcp_project_id = "" # Example: "your-gcp-project-123"
-  environment    = "" # Must be <= 3 characters. Example: "abc"
-  image_repo     = "" # Example: "us-docker.pkg.dev/your-gcp-project-123/services"
-  buyer_operator = "" # Example: "buyer-1"
+  gcp_project_id = "gtech-privacy-baservices-dev" # Example: "your-gcp-project-123"
+  environment    = "dev" # Must be <= 3 characters. Example: "abc"
+  image_repo     = "us-central1-docker.pkg.dev/gtech-privacy-baservices-dev/bidding-auction-servers-image-repo/non-prod" # Example: "us-docker.pkg.dev/your-gcp-project-123/services"
+  buyer_operator = "dsp-y" # Example: "buyer-1"
+  gcs_hmac_key_name    = "gcs-hmac-key-${local.buyer_operator}"
+  gcs_hmac_secret_name = "gcs-hmac-secret-${local.buyer_operator}"
+  tls_key_name  = "envoy-tls-termination-key-${local.buyer_operator}"
+  tls_cert_name = "envoy-tls-termination-cert-${local.buyer_operator}"
+
   default_region_config = {
     # Example config provided for us-central1 and you may add your own regions.
     "us-central1" = {
@@ -48,16 +53,16 @@ locals {
   # Please create a Google Cloud domain name, dns zone, and SSL certificate.
   # See demo/project_setup_utils/domain_setup/README.md for more details.
   # If you specify a certificate_map_id, you do not need to specify an ssl_certificate_id.
-  frontend_domain_ssl_certificate_id = "" # Example: "projects/${local.gcp_project_id}/global/sslCertificates/bfe-${local.environment}"
-  frontend_certificate_map_id        = "" # Example: "//certificatemanager.googleapis.com/projects/test/locations/global/certificateMaps/wildcard-cert-map"
+  frontend_domain_ssl_certificate_id = "projects/gtech-privacy-baservices-dev/locations/global/certificates/wildcard-privacy-sandbox-demos-dsp-y-dev-cert" # Example: "projects/${local.gcp_project_id}/global/sslCertificates/bfe-${local.environment}"
+  frontend_certificate_map_id        = "//certificatemanager.googleapis.com/projects/gtech-privacy-baservices-dev/locations/global/certificateMaps/wildcard-privacy-sandbox-demos-dsp-y-dev-cert-map" # Example: "//certificatemanager.googleapis.com/projects/test/locations/global/certificateMaps/wildcard-cert-map"
   frontend_ssl_policy_id             = "" # Example: "projects/${local.gcp_project_id}/global/sslPolicies/bfe-ssl-policy
-  buyer_domain_name                  = "" # Example: bfe-gcp.com
-  frontend_dns_zone                  = "" # Example: "bfe-gcp-com"
+  buyer_domain_name                  = "bfe.privacy-sandbox-demos-dsp-y.dev" # Example: bfe-gcp.com
+  frontend_dns_zone                  = "bfe-privacy-sandbox-demos-dsp-y-dev" # Example: "bfe-gcp-com"
 
   buyer_traffic_splits = {
     # default
     "${local.environment}" = {
-      image_tag             = ""   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
+      image_tag             = "v4.9.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
       traffic_weight        = 1000 # traffic_weight for this arm, between 0~1000. default's weight must > 0.
       region_config         = local.default_region_config
       runtime_flag_override = {}
@@ -122,6 +127,11 @@ resource "google_compute_project_metadata" "default" {
 # See README.md for instructions on how to use the secrets module.
 module "secrets" {
   source = "../../../modules/secrets"
+
+  gcs_hmac_key = local.gcs_hmac_key_name
+  gcs_hmac_secret = local.gcs_hmac_secret_name
+  tls_key  = local.tls_key_name
+  tls_cert = local.tls_cert_name
 }
 
 module "buyer" {
@@ -137,7 +147,7 @@ module "buyer" {
   gcp_project_id       = local.gcp_project_id
   bidding_image        = "${local.image_repo}/bidding_service:${each.value.image_tag}"
   buyer_frontend_image = "${local.image_repo}/buyer_frontend_service:${each.value.image_tag}"
-  fakekv_service_port  = 1900 # Ignore this.
+  # fakekv_service_port  = 1900 # Ignore this.
 
   runtime_flags = merge({
     BIDDING_PORT                      = "50051"          # Do not change unless you are modifying the default GCP architecture.
@@ -150,34 +160,34 @@ module "buyer" {
     KV_SERVER_EGRESS_TLS              = "false"          # Do not change unless you are modifying the default GCP architecture.
     TEST_MODE                         = "false"          # Do not change unless you are testing without key fetching.
 
-    ENABLE_BIDDING_SERVICE_BENCHMARK = "" # Example: "false"
+    ENABLE_BIDDING_SERVICE_BENCHMARK = "false" # Example: "false"
 
     # Refers to BYOS Buyer Key-Value Server only.
-    BUYER_KV_SERVER_ADDR = "" # Example: "https://kvserver.com/trusted-signals"
+    BUYER_KV_SERVER_ADDR = "https://privacy-sandcastle-dev-dsp-y.web.app/dsp/service/kv" # Example: "https://kvserver.com/trusted-signals"
 
     # [BEGIN] Trusted KV real time signal fetching params (Protected Audience Only)
-    ENABLE_TKV_V2_BROWSER    = ""            # Example: "false"
-    TKV_EGRESS_TLS           = ""            # Example: "false"
+    ENABLE_TKV_V2_BROWSER    = "false"            # Example: "false"
+    TKV_EGRESS_TLS           = "false"            # Example: "false"
     BUYER_TKV_V2_SERVER_ADDR = "PLACEHOLDER" # Example: "dns:///kvserver:443"
     # [END] Trusted KV real time signal fetching params (Protected Audience Only)
 
     # [BEGIN] Protected App Signals (PAS) related services.
-    TEE_AD_RETRIEVAL_KV_SERVER_ADDR = "" # Example: "xds:///ad-retrieval-host", Address of the TEE ad retrieval service (Used in non-contextual PAS flow)
-    TEE_KV_SERVER_ADDR              = "" # Example: "xds:///kv-service-host", Address of the TEE KV server address (Used in contextual PAS flow)
-    AD_RETRIEVAL_TIMEOUT_MS         = "" # Example: "60000"
+    TEE_AD_RETRIEVAL_KV_SERVER_ADDR = "PLACEHOLDER" # Example: "xds:///ad-retrieval-host", Address of the TEE ad retrieval service (Used in non-contextual PAS flow)
+    TEE_KV_SERVER_ADDR              = "PLACEHOLDER" # Example: "xds:///kv-service-host", Address of the TEE KV server address (Used in contextual PAS flow)
+    AD_RETRIEVAL_TIMEOUT_MS         = "PLACEHOLDER" # Example: "60000"
     # [END] Protected App Signals (PAS) related services.
 
-    GENERATE_BID_TIMEOUT_MS            = "" # Example: "60000"
-    BIDDING_SIGNALS_LOAD_TIMEOUT_MS    = "" # Example: "60000"
-    ENABLE_BUYER_FRONTEND_BENCHMARKING = "" # Example: "false"
-    CREATE_NEW_EVENT_ENGINE            = "" # Example: "false"
-    ENABLE_BIDDING_COMPRESSION         = "" # Example: "true"
-    ENABLE_PROTECTED_AUDIENCE          = "" # Example: "true"
-    PS_VERBOSITY                       = "" # Example: "10"
+    GENERATE_BID_TIMEOUT_MS            = "60000" # Example: "60000"
+    BIDDING_SIGNALS_LOAD_TIMEOUT_MS    = "60000" # Example: "60000"
+    ENABLE_BUYER_FRONTEND_BENCHMARKING = "false" # Example: "false"
+    CREATE_NEW_EVENT_ENGINE            = "false" # Example: "false"
+    ENABLE_BIDDING_COMPRESSION         = "true" # Example: "true"
+    ENABLE_PROTECTED_AUDIENCE          = "true" # Example: "true"
+    PS_VERBOSITY                       = "10" # Example: "10"
     # [BEGIN] PAS related params
-    ENABLE_PROTECTED_APP_SIGNALS                  = "" # Example: "false"
-    PROTECTED_APP_SIGNALS_GENERATE_BID_TIMEOUT_MS = "" # Example: "60000"
-    EGRESS_SCHEMA_FETCH_CONFIG                    = "" # Example:
+    ENABLE_PROTECTED_APP_SIGNALS                  = "false" # Example: "false"
+    PROTECTED_APP_SIGNALS_GENERATE_BID_TIMEOUT_MS = "60000" # Example: "60000"
+    EGRESS_SCHEMA_FETCH_CONFIG                    = "PLACEHOLDER" # Example:
     # "{
     #   "fetchMode": 0,
     #   "egressSchemaUrl": "https://example.com/egressSchema.json",
@@ -185,22 +195,20 @@ module "buyer" {
     #   "urlFetchTimeoutMs": 30000
     # }"
     # [END] PAS related params
-    BUYER_CODE_FETCH_CONFIG = "" # See README for flag descriptions
-    # Example for V8:
-    # "{
-    #    "fetchMode": 0,
-    #    "biddingJsPath": "",
-    #    "biddingJsUrl": "https://example.com/generateBid.js",
-    #    "protectedAppSignalsBiddingJsUrl": "https://example.com/generateBid.js",
-    #    "biddingWasmHelperUrl": "",
-    #    "protectedAppSignalsBiddingWasmHelperUrl": "",
-    #    "urlFetchPeriodMs": 13000000,
-    #    "urlFetchTimeoutMs": 30000,
-    #    "enableBuyerDebugUrlGeneration": true,
-    #    "prepareDataForAdsRetrievalJsUrl": "",
-    #    "prepareDataForAdsRetrievalWasmHelperUrl": "",
-    #    "enablePrivateAggregateReporting": false,
-    #  }"
+    BUYER_CODE_FETCH_CONFIG = jsonencode({
+       "fetchMode": 0,
+       "biddingJsPath": "",
+       "biddingJsUrl": "https://privacy-sandcastle-dev-dsp-y.web.app/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-y.js",
+       "protectedAppSignalsBiddingJsUrl": "https://example.com/generateBid.js",
+       "biddingWasmHelperUrl": "",
+       "protectedAppSignalsBiddingWasmHelperUrl": "",
+       "urlFetchPeriodMs": 13000000,
+       "urlFetchTimeoutMs": 30000,
+       "enableBuyerDebugUrlGeneration": true,
+       "prepareDataForAdsRetrievalJsUrl": "",
+       "prepareDataForAdsRetrievalWasmHelperUrl": "",
+       "enablePrivateAggregateReporting": false,
+    })
     # Example for BYOB:
     # "{
     #    "fetchMode": 0,
@@ -211,13 +219,13 @@ module "buyer" {
     #    "enableBuyerDebugUrlGeneration": true,
     #    "enablePrivateAggregateReporting": false,
     #  }"
-    UDF_NUM_WORKERS           = "" # Example: "64" Must be <=vCPUs in bidding_machine_type.
-    JS_WORKER_QUEUE_LEN       = "" # Example: "200".
-    ROMA_TIMEOUT_MS           = "" # Example: "10000"
-    TELEMETRY_CONFIG          = "" # Example: "mode: EXPERIMENT"
-    COLLECTOR_ENDPOINT        = "" # Example: "collector-buyer-1-${each.key}.bfe-gcp.com:4317"
-    ENABLE_OTEL_BASED_LOGGING = "" # Example: "false"
-    CONSENTED_DEBUG_TOKEN     = "" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
+    UDF_NUM_WORKERS           = "64" # Example: "64" Must be <=vCPUs in bidding_machine_type.
+    JS_WORKER_QUEUE_LEN       = "200" # Example: "200".
+    ROMA_TIMEOUT_MS           = "1000" # Example: "10000"
+    TELEMETRY_CONFIG          = "mode: EXPERIMENT" # Example: "mode: EXPERIMENT"
+    COLLECTOR_ENDPOINT        = "collector-dsp-y-${each.key}.bfe.privacy-sandbox-demos-dsp-y.dev:4317" # Example: "collector-buyer-1-${each.key}.bfe-gcp.com:4317"
+    ENABLE_OTEL_BASED_LOGGING = "false" # Example: "false"
+    CONSENTED_DEBUG_TOKEN     = "NA" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
     DEBUG_SAMPLE_RATE_MICRO   = "0"
 
     # Coordinator-based attestation flags.
@@ -240,14 +248,14 @@ module "buyer" {
 
     BFE_TLS_KEY                        = module.secrets.tls_key  # You may remove the secrets module and instead either inline or use an auto.tfvars for this variable.
     BFE_TLS_CERT                       = module.secrets.tls_cert # You may remove the secrets module and instead either inline or use an auto.tfvars for this variable.
-    MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = ""                      # Example: "65536"
-    MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = ""                      # Example: "3000"
+    MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = "65536"                      # Example: "65536"
+    MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = "3000"                      # Example: "3000"
 
-    INFERENCE_SIDECAR_BINARY_PATH    = "" # Example: "/server/bin/inference_sidecar_<module_name>"
-    INFERENCE_MODEL_BUCKET_NAME      = "" # Example: "<bucket_name>"
-    INFERENCE_MODEL_CONFIG_PATH      = "" # Example: "model_config.json"
-    INFERENCE_MODEL_FETCH_PERIOD_MS  = "" # Example: "300000"
-    INFERENCE_SIDECAR_RUNTIME_CONFIG = "" # Example:
+    INFERENCE_SIDECAR_BINARY_PATH    = "PLACEHOLDER" # Example: "/server/bin/inference_sidecar_<module_name>"
+    INFERENCE_MODEL_BUCKET_NAME      = "PLACEHOLDER" # Example: "<bucket_name>"
+    INFERENCE_MODEL_CONFIG_PATH      = "PLACEHOLDER" # Example: "model_config.json"
+    INFERENCE_MODEL_FETCH_PERIOD_MS  = "PLACEHOLDER" # Example: "300000"
+    INFERENCE_SIDECAR_RUNTIME_CONFIG = "PLACEHOLDER" # Example:
     # "{
     #    "num_interop_threads": 4,
     #    "num_intraop_threads": 4,
@@ -318,7 +326,7 @@ module "buyer" {
   frontend_domain_name               = local.buyer_domain_name
   frontend_dns_zone                  = local.frontend_dns_zone
   operator                           = local.buyer_operator
-  service_account_email              = ""    # Example: "bidding-auction-services@{local.gcp_project_id}.iam.gserviceaccount.com"
+  service_account_email              = "bidding-auction-dsp-y@gtech-privacy-baservices-dev.iam.gserviceaccount.com"    # Example: "bidding-auction-services@{local.gcp_project_id}.iam.gserviceaccount.com"
   vm_startup_delay_seconds           = 200   # Example: 200
   cpu_utilization_percent            = 0.6   # Example: 0.6
   use_confidential_space_debug_image = false # Example: false
@@ -329,9 +337,9 @@ module "buyer" {
     otel_collector_image_uri = "otel/opentelemetry-collector-contrib:0.105.0"
     gcs_hmac_key             = module.secrets.gcs_hmac_key
     gcs_hmac_secret          = module.secrets.gcs_hmac_secret
-    gcs_bucket               = "" # Example: ${name of a gcs bucket}
-    gcs_bucket_prefix        = "" # Example: "consented-eventmessage-${each.key}"
-    file_prefix              = "" # Example: local.buyer_operator
+    gcs_bucket               = "gtech-privacy-baservices-dev-collector" # Example: ${name of a gcs bucket}
+    gcs_bucket_prefix        = "consented-eventmessage-${each.key}" # Example: "consented-eventmessage-${each.key}"
+    file_prefix              = local.buyer_operator # Example: local.buyer_operator
   })
   region_config                     = each.value.region_config
   enable_tee_container_log_redirect = false
@@ -388,6 +396,7 @@ module "k_anon_dashboard" {
 module "log_based_metric" {
   source      = "../../../services/log_based_metric"
   environment = local.environment
+  operator = local.buyer_operator
 }
 
 # use below to perform an in-place upgrade from pre 4.2 to 4.2 and after, replace $ENV with $local.environment value
