@@ -12,6 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+variable "gcs_hmac_key" {
+  type        = string
+  description = "The name (secret_id) of the Secret Manager secret holding the GCS HMAC Key ID."
+}
+
+variable "gcs_hmac_secret" {
+  type        = string
+  description = "The name (secret_id) of the Secret Manager secret holding the GCS HMAC Secret value."
+}
+
 data "google_secret_manager_secret_version" "tls_key" {
   provider = google-beta
   secret   = "envoy-tls-termination-key"
@@ -24,12 +34,12 @@ data "google_secret_manager_secret_version" "tls_cert" {
 
 data "google_secret_manager_secret_version" "gcs_hmac_key" {
   provider = google-beta
-  secret   = "gcs-hmac-key"
+  secret   = var.gcs_hmac_key
 }
 
 data "google_secret_manager_secret_version" "gcs_hmac_secret" {
   provider = google-beta
-  secret   = "gcs-hmac-secret"
+  secret   = var.gcs_hmac_secret
 }
 
 output "tls_key" {

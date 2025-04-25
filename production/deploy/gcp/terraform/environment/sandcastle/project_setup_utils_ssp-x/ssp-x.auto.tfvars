@@ -15,3 +15,4 @@
 project_id = "gtech-privacy-baservices-dev"
 domain = "privacy-sandbox-demos-ssp-x.dev"
 service_account_name = "bidding-auction-ssp-x"
+operator = "ssp-x"

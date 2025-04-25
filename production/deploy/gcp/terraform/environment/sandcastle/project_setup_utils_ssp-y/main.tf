@@ -52,6 +52,8 @@ module "service_account" {
   source               = "./service_account"
   project_id           = var.project_id
   service_account_name = var.service_account_name
+  operator             = var.operator
+
 
   # Make internal_dns depend on the api module
   depends_on = [module.api]

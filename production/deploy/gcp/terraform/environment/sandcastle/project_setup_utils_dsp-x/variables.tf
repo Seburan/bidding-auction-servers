@@ -30,3 +30,8 @@ variable "service_account_name" {
   description = "The name of the service account to create."
   default     = "bidding-auction-services"
 }
+
+variable "operator" {
+  type = string
+  description = "Name of the service operator. e.g. : buyer-1 or seller-1"
+}
