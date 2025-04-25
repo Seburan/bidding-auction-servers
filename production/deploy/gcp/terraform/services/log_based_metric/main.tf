@@ -61,33 +61,33 @@ resource "google_logging_metric" "crash_log_metric" {
 # Error creating AlertPolicy: googleapi: Error 400: The following PromQL metric(s) are invalid:  workload_googleapis_com:request_count,workload_googleapis_com:request_failed_count
 # "detail": "The following PromQL metric(s) are invalid:  workload_googleapis_com:request_count,workload_googleapis_com:request_failed_count"
 
-resource "google_monitoring_alert_policy" "alert_policy" {
-  display_name = "High Request Failure Rate-${var.operator}-${var.environment}"
-  combiner     = "OR"
-  conditions {
-    display_name = "Request Failure Rate > ${var.request_fail_alert_threshold}"
-    condition_prometheus_query_language {
-      query               = <<EOT
-          sum by(deployment_environment, service_name) (
-            rate(workload_googleapis_com:request_failed_count{
-              monitored_resource="generic_task",
-              deployment_environment=~".*${var.environment}.*"
-            }[1m])
-          )
-          /
-          sum by(deployment_environment, service_name) (
-            rate(workload_googleapis_com:request_count{
-              monitored_resource="generic_task",
-              deployment_environment=~".*${var.environment}.*"
-            }[1m])
-          ) > ${var.request_fail_alert_threshold}
-        EOT
-      duration            = "120s"
-      evaluation_interval = "60s"
-    }
-  }
+# resource "google_monitoring_alert_policy" "alert_policy" {
+#   display_name = "High Request Failure Rate-${var.operator}-${var.environment}"
+#   combiner     = "OR"
+#   conditions {
+#     display_name = "Request Failure Rate > ${var.request_fail_alert_threshold}"
+#     condition_prometheus_query_language {
+#       query               = <<EOT
+#           sum by(deployment_environment, service_name) (
+#             rate(workload_googleapis_com:request_failed_count{
+#               monitored_resource="generic_task",
+#               deployment_environment=~".*${var.environment}.*"
+#             }[1m])
+#           )
+#           /
+#           sum by(deployment_environment, service_name) (
+#             rate(workload_googleapis_com:request_count{
+#               monitored_resource="generic_task",
+#               deployment_environment=~".*${var.environment}.*"
+#             }[1m])
+#           ) > ${var.request_fail_alert_threshold}
+#         EOT
+#       duration            = "120s"
+#       evaluation_interval = "60s"
+#     }
+#   }
 
-  alert_strategy {
-    auto_close = "1800s"
-  }
-}
+#   alert_strategy {
+#     auto_close = "1800s"
+#   }
+# }
