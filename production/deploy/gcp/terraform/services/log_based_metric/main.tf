@@ -15,7 +15,7 @@
  */
 
 resource "google_logging_metric" "error_log_metric" {
-  name   = "error_log-${var.environment}"
+  name   = "error_log-${var.operator}-${var.environment}"
   filter = "resource.type=\"generic_task\" AND severity=ERROR"
   metric_descriptor {
     metric_kind = "DELTA"
@@ -32,7 +32,7 @@ resource "google_logging_metric" "error_log_metric" {
 }
 
 resource "google_logging_metric" "fatal_log_metric" {
-  name   = "fatal_log-${var.environment}"
+  name   = "fatal_log-${var.operator}-${var.environment}"
   filter = "resource.type=\"generic_task\" AND severity=CRITICAL"
   metric_descriptor {
     metric_kind = "DELTA"
@@ -41,7 +41,7 @@ resource "google_logging_metric" "fatal_log_metric" {
 }
 
 resource "google_logging_metric" "crash_log_metric" {
-  name   = "vm_crash_log-${var.environment}"
+  name   = "vm_crash_log-${var.operator}-${var.environment}"
   filter = "jsonPayload.MESSAGE=\"workload task ended and returned non-zero\" AND severity=ERROR"
   metric_descriptor {
     metric_kind = "DELTA"
@@ -57,8 +57,12 @@ resource "google_logging_metric" "crash_log_metric" {
   }
 }
 
+# temporarily commented out as the alert policy creation failed
+# Error creating AlertPolicy: googleapi: Error 400: The following PromQL metric(s) are invalid:  workload_googleapis_com:request_count,workload_googleapis_com:request_failed_count
+# "detail": "The following PromQL metric(s) are invalid:  workload_googleapis_com:request_count,workload_googleapis_com:request_failed_count"
+
 resource "google_monitoring_alert_policy" "alert_policy" {
-  display_name = "High Request Failure Rate-${var.environment}"
+  display_name = "High Request Failure Rate-${var.operator}-${var.environment}"
   combiner     = "OR"
   conditions {
     display_name = "Request Failure Rate > ${var.request_fail_alert_threshold}"

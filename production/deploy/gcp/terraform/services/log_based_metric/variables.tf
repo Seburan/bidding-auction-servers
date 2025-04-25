@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+variable "operator" {
+  description = "Assigned name of an operator in Bidding & Auction system, i.e. seller1, buyer1, buyer2."
+  type        = string
+}
 
 variable "environment" {
   description = "Assigned environment name to group related resources."
