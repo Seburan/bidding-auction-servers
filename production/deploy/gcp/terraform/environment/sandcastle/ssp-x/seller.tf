@@ -155,7 +155,7 @@ module "seller" {
     BUYER_EGRESS_TLS                 = "true"           # Do not change unless you are modifying the default GCP architecture.
     AUCTION_EGRESS_TLS               = "false"          # Do not change unless you are modifying the default GCP architecture.
     # Note: Setting this flag to true will disable validation of buyerReportWinJsUrls.
-    TEST_MODE = "false" # Do not change unless you are testing without key fetching.
+    TEST_MODE                        = "true" # Do not change unless you are testing without key fetching.
 
     ENABLE_AUCTION_SERVICE_BENCHMARK = "false"            # Example: "false"
     GET_BID_RPC_TIMEOUT_MS           = "60000"            # Example: "60000"

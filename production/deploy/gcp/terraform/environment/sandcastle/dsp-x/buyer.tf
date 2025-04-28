@@ -158,7 +158,7 @@ module "buyer" {
     BIDDING_EGRESS_TLS                = "false"          # Do not change unless you are modifying the default GCP architecture.
     AD_RETRIEVAL_KV_SERVER_EGRESS_TLS = "false"          # Do not change unless you are modifying the default GCP architecture.
     KV_SERVER_EGRESS_TLS              = "false"          # Do not change unless you are modifying the default GCP architecture.
-    TEST_MODE                         = "false"          # Do not change unless you are testing without key fetching.
+    TEST_MODE                         = "true"          # Do not change unless you are testing without key fetching.
 
     ENABLE_BIDDING_SERVICE_BENCHMARK = "false" # Example: "false"
 
