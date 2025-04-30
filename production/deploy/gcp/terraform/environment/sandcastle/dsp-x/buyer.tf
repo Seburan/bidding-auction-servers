@@ -166,15 +166,15 @@ module "buyer" {
     BUYER_KV_SERVER_ADDR = "https://privacy-sandcastle-dev-dsp-x.web.app/dsp/service/kv" # Example: "https://kvserver.com/trusted-signals"
 
     # [BEGIN] Trusted KV real time signal fetching params (Protected Audience Only)
-    ENABLE_TKV_V2_BROWSER    = "false"            # Example: "false"
-    TKV_EGRESS_TLS           = "false"            # Example: "false"
-    BUYER_TKV_V2_SERVER_ADDR = "PLACEHOLDER" # Example: "dns:///kvserver:443"
+    # ENABLE_TKV_V2_BROWSER    = "false"            # Example: "false"
+    # TKV_EGRESS_TLS           = "false"            # Example: "false"
+    # BUYER_TKV_V2_SERVER_ADDR = "PLACEHOLDER" # Example: "dns:///kvserver:443"
     # [END] Trusted KV real time signal fetching params (Protected Audience Only)
 
     # [BEGIN] Protected App Signals (PAS) related services.
-    TEE_AD_RETRIEVAL_KV_SERVER_ADDR = "PLACEHOLDER" # Example: "xds:///ad-retrieval-host", Address of the TEE ad retrieval service (Used in non-contextual PAS flow)
-    TEE_KV_SERVER_ADDR              = "PLACEHOLDER" # Example: "xds:///kv-service-host", Address of the TEE KV server address (Used in contextual PAS flow)
-    AD_RETRIEVAL_TIMEOUT_MS         = "PLACEHOLDER" # Example: "60000"
+    # TEE_AD_RETRIEVAL_KV_SERVER_ADDR = "PLACEHOLDER" # Example: "xds:///ad-retrieval-host", Address of the TEE ad retrieval service (Used in non-contextual PAS flow)
+    # TEE_KV_SERVER_ADDR              = "PLACEHOLDER" # Example: "xds:///kv-service-host", Address of the TEE KV server address (Used in contextual PAS flow)
+    # AD_RETRIEVAL_TIMEOUT_MS         = "PLACEHOLDER" # Example: "60000"
     # [END] Protected App Signals (PAS) related services.
 
     GENERATE_BID_TIMEOUT_MS            = "60000" # Example: "60000"
@@ -185,9 +185,9 @@ module "buyer" {
     ENABLE_PROTECTED_AUDIENCE          = "true" # Example: "true"
     PS_VERBOSITY                       = "10" # Example: "10"
     # [BEGIN] PAS related params
-    ENABLE_PROTECTED_APP_SIGNALS                  = "false" # Example: "false"
-    PROTECTED_APP_SIGNALS_GENERATE_BID_TIMEOUT_MS = "60000" # Example: "60000"
-    EGRESS_SCHEMA_FETCH_CONFIG                    = "PLACEHOLDER" # Example:
+    # ENABLE_PROTECTED_APP_SIGNALS                  = "false" # Example: "false"
+    # PROTECTED_APP_SIGNALS_GENERATE_BID_TIMEOUT_MS = "60000" # Example: "60000"
+    # EGRESS_SCHEMA_FETCH_CONFIG                    = "PLACEHOLDER" # Example:
     # "{
     #   "fetchMode": 0,
     #   "egressSchemaUrl": "https://example.com/egressSchema.json",
@@ -251,11 +251,11 @@ module "buyer" {
     MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = "65536"                      # Example: "65536"
     MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = "3000"                      # Example: "3000"
 
-    INFERENCE_SIDECAR_BINARY_PATH    = "PLACEHOLDER" # Example: "/server/bin/inference_sidecar_<module_name>"
-    INFERENCE_MODEL_BUCKET_NAME      = "PLACEHOLDER" # Example: "<bucket_name>"
-    INFERENCE_MODEL_CONFIG_PATH      = "PLACEHOLDER" # Example: "model_config.json"
-    INFERENCE_MODEL_FETCH_PERIOD_MS  = "PLACEHOLDER" # Example: "300000"
-    INFERENCE_SIDECAR_RUNTIME_CONFIG = "PLACEHOLDER" # Example:
+    # INFERENCE_SIDECAR_BINARY_PATH    = "PLACEHOLDER" # Example: "/server/bin/inference_sidecar_<module_name>"
+    # INFERENCE_MODEL_BUCKET_NAME      = "PLACEHOLDER" # Example: "<bucket_name>"
+    # INFERENCE_MODEL_CONFIG_PATH      = "PLACEHOLDER" # Example: "model_config.json"
+    # INFERENCE_MODEL_FETCH_PERIOD_MS  = "PLACEHOLDER" # Example: "300000"
+    # INFERENCE_SIDECAR_RUNTIME_CONFIG = "PLACEHOLDER" # Example:
     # "{
     #    "num_interop_threads": 4,
     #    "num_intraop_threads": 4,
@@ -342,7 +342,7 @@ module "buyer" {
     file_prefix              = local.buyer_operator # Example: local.buyer_operator
   })
   region_config                     = each.value.region_config
-  enable_tee_container_log_redirect = false
+  enable_tee_container_log_redirect = true
 }
 
 module "buyer_frontend_load_balancing" {
