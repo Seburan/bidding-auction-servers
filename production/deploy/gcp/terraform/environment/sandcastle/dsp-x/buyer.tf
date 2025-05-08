@@ -151,6 +151,7 @@ module "buyer" {
 
   runtime_flags = merge({
     BIDDING_PORT                      = "50051"          # Do not change unless you are modifying the default GCP architecture.
+    BIDDING_HEALTHCHECK_PORT          = "50050"          # added by Severin. value must be defined and different from BIDDING_PORT
     BUYER_FRONTEND_PORT               = "50051"          # Do not change unless you are modifying the default GCP architecture.
     BUYER_FRONTEND_HEALTHCHECK_PORT   = "50050"          # Do not change unless you are modifying the default GCP architecture.
     BIDDING_SERVER_ADDR               = "xds:///bidding" # Do not change unless you are modifying the default GCP architecture.
@@ -166,7 +167,7 @@ module "buyer" {
     BUYER_KV_SERVER_ADDR = "https://privacy-sandcastle-dev-dsp-x.web.app/dsp/service/kv" # Example: "https://kvserver.com/trusted-signals"
 
     # [BEGIN] Trusted KV real time signal fetching params (Protected Audience Only)
-    # ENABLE_TKV_V2_BROWSER    = "false"            # Example: "false"
+    ENABLE_TKV_V2_BROWSER    = "false"            # Severin : if you don't use it set to false and comment the parameters below
     # TKV_EGRESS_TLS           = "false"            # Example: "false"
     # BUYER_TKV_V2_SERVER_ADDR = "PLACEHOLDER" # Example: "dns:///kvserver:443"
     # [END] Trusted KV real time signal fetching params (Protected Audience Only)
@@ -174,7 +175,7 @@ module "buyer" {
     # [BEGIN] Protected App Signals (PAS) related services.
     # TEE_AD_RETRIEVAL_KV_SERVER_ADDR = "PLACEHOLDER" # Example: "xds:///ad-retrieval-host", Address of the TEE ad retrieval service (Used in non-contextual PAS flow)
     # TEE_KV_SERVER_ADDR              = "PLACEHOLDER" # Example: "xds:///kv-service-host", Address of the TEE KV server address (Used in contextual PAS flow)
-    # AD_RETRIEVAL_TIMEOUT_MS         = "PLACEHOLDER" # Example: "60000"
+    AD_RETRIEVAL_TIMEOUT_MS         = "60000" # Example: "60000". Severin : mandatory value, set to default value even if you don't use it
     # [END] Protected App Signals (PAS) related services.
 
     GENERATE_BID_TIMEOUT_MS            = "60000" # Example: "60000"
@@ -185,15 +186,15 @@ module "buyer" {
     ENABLE_PROTECTED_AUDIENCE          = "true" # Example: "true"
     PS_VERBOSITY                       = "10" # Example: "10"
     # [BEGIN] PAS related params
-    # ENABLE_PROTECTED_APP_SIGNALS                  = "false" # Example: "false"
-    # PROTECTED_APP_SIGNALS_GENERATE_BID_TIMEOUT_MS = "60000" # Example: "60000"
-    # EGRESS_SCHEMA_FETCH_CONFIG                    = "PLACEHOLDER" # Example:
-    # "{
+    ENABLE_PROTECTED_APP_SIGNALS                  = "false" # Example: "false"
+    PROTECTED_APP_SIGNALS_GENERATE_BID_TIMEOUT_MS = "60000" # Example: "60000"
+    # EGRESS_SCHEMA_FETCH_CONFIG                    = jsonencode(  # Example
+    # {
     #   "fetchMode": 0,
     #   "egressSchemaUrl": "https://example.com/egressSchema.json",
     #   "urlFetchPeriodMs": 130000,
     #   "urlFetchTimeoutMs": 30000
-    # }"
+    # })
     # [END] PAS related params
     BUYER_CODE_FETCH_CONFIG = jsonencode({
        "fetchMode": 0,
@@ -225,7 +226,7 @@ module "buyer" {
     TELEMETRY_CONFIG          = "mode: EXPERIMENT" # Example: "mode: EXPERIMENT"
     COLLECTOR_ENDPOINT        = "collector-dsp-x-${each.key}.bfe.privacy-sandbox-demos-dsp-x.dev:4317" # Example: "collector-buyer-1-${each.key}.bfe-gcp.com:4317"
     ENABLE_OTEL_BASED_LOGGING = "false" # Example: "false"
-    CONSENTED_DEBUG_TOKEN     = "NA" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
+    # CONSENTED_DEBUG_TOKEN     = "PLACEHOLDER" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
     DEBUG_SAMPLE_RATE_MICRO   = "0"
 
     # Coordinator-based attestation flags.
@@ -248,8 +249,8 @@ module "buyer" {
 
     BFE_TLS_KEY                        = module.secrets.tls_key  # You may remove the secrets module and instead either inline or use an auto.tfvars for this variable.
     BFE_TLS_CERT                       = module.secrets.tls_cert # You may remove the secrets module and instead either inline or use an auto.tfvars for this variable.
-    MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = "65536"                      # Example: "65536"
-    MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = "3000"                      # Example: "3000"
+    MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = "65536"                      # Example: "65536"  Seveerin : mandatory value
+    MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = "3000"                      # Example: "3000"  Seveerin : mandatory value
 
     # INFERENCE_SIDECAR_BINARY_PATH    = "PLACEHOLDER" # Example: "/server/bin/inference_sidecar_<module_name>"
     # INFERENCE_MODEL_BUCKET_NAME      = "PLACEHOLDER" # Example: "<bucket_name>"
@@ -276,7 +277,7 @@ module "buyer" {
     # NOT_FETCHED: No call to KV server is made. All interest groups are sent to generateBid().
     # FETCHED_BUT_OPTIONAL: Call to KV server is made and must not fail. All interest groups are sent to generateBid() irrespective of whether they have bidding signals or not.
     # Any other value/REQUIRED (default): Call to KV server is made and must not fail. Only those interest groups are sent to generateBid() that have at least one bidding signals key for which non-empty bidding signals are fetched.
-    BIDDING_SIGNALS_FETCH_MODE = "REQUIRED"
+    BIDDING_SIGNALS_FETCH_MODE = "FETCHED_BUT_OPTIONAL"
 
     ###### [BEGIN] Libcurl parameters.
     #
