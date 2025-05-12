@@ -13,9 +13,9 @@
 # limitations under the License.
 
 locals {
-  gcp_project_id  = "gtech-privacy-baservices-dev" # Example: "your-gcp-project-123"
-  environment     = "dev" # Must be <= 3 characters. Example: "abc"
-  image_repo      = "us-central1-docker.pkg.dev/gtech-privacy-baservices-dev/bidding-auction-servers-image-repo/non-prod" # Example: "us-docker.pkg.dev/your-gcp-project-123/services"
+  gcp_project_id = "gtech-privacy-baservices-dev" # Example: "your-gcp-project-123"
+  environment    = "dev" # Must be <= 3 characters. Example: "abc"
+  image_repo     = "us-central1-docker.pkg.dev/gtech-privacy-baservices-dev/bidding-auction-servers-image-repo/non-prod" # Example: "us-docker.pkg.dev/your-gcp-project-123/services"
   seller_operator = "ssp-x" # Example: "seller-1"
   gcs_hmac_key_name    = "gcs-hmac-key-${local.seller_operator}"
   gcs_hmac_secret_name = "gcs-hmac-secret-${local.seller_operator}"
@@ -62,7 +62,7 @@ locals {
   seller_traffic_splits = {
     # default
     "${local.environment}" = {
-      image_tag             = ""   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
+      image_tag             = "v4.9.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
       traffic_weight        = 1000 # traffic_weight for this arm, between 0~1000. default's weight must > 0.
       region_config         = local.default_region_config
       runtime_flag_override = {}
@@ -161,21 +161,31 @@ module "seller" {
     GET_BID_RPC_TIMEOUT_MS           = "60000"            # Example: "60000"
     SCORE_ADS_RPC_TIMEOUT_MS         = "60000"            # Example: "60000"
     SELLER_ORIGIN_DOMAIN             = "https://privacy-sandbox-demos-ssp-x.dev"            # Example: "https://sellerorigin.com"
-    K_ANON_API_KEY                   = "PLACEHOLDER" # API Key used to query k-anon service.
+    K_ANON_API_KEY                   = "" # API Key used to query k-anon service.
 
     # [BEGIN] Trusted KV real time signal fetching params
     ENABLE_TKV_V2_BROWSER                  = "false"            # Example: "false", Whether or not to use a trusted KV for browser clients. (Android clients traffic always need a trusted KV.)
-    TKV_EGRESS_TLS                         = "false"            # Example: "false", Whether or not to use TLS when talking to TKV. (Useful when TKV is not in the same VPC/mesh)
-    TRUSTED_KEY_VALUE_V2_SIGNALS_HOST      = "PLACEHOLDER" # Example: "dns:///keyvaluesignals:443", Address where the TKV is listening.
-    KEY_VALUE_SIGNALS_FETCH_RPC_TIMEOUT_MS = "60000"            # Example: "60000"
+    # TKV_EGRESS_TLS                         = "false"            # Example: "false", Whether or not to use TLS when talking to TKV. (Useful when TKV is not in the same VPC/mesh)
+    # TRUSTED_KEY_VALUE_V2_SIGNALS_HOST      = "PLACEHOLDER" # Example: "dns:///keyvaluesignals:443", Address where the TKV is listening.
+    # KEY_VALUE_SIGNALS_FETCH_RPC_TIMEOUT_MS = "60000"            # Example: "60000"
     # [END] Trusted KV real time signal fetching params
 
     # [BEGIN] Untrusted KV real time signal fetching params
     KEY_VALUE_SIGNALS_HOST = "https://privacy-sandcastle-dev-ssp-x.web.app/ssp/usecase/bidding-and-auction/ssp-x/service/kv " # Example: "https://keyvaluesignals.com/trusted-signals"
     # [END] Untrusted KV real time signal fetching params
 
-    BUYER_SERVER_HOSTS                  = "{ \"https://privacy-sandbox-demos-dsp-x.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-x:443\", \"cloudPlatform\": \"GCP\" }, \"https://privacy-sandbox-demos-dsp-y.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-y:443\", \"cloudPlatform\": \"GCP\" } }" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
-    SELLER_CLOUD_PLATFORMS_MAP          = "PLACEHOLDER" # Example: "{ \"https://partner-seller1.com\": "GCP", \"https://partner-seller2.com\": "AWS"}"
+    # BUYER_SERVER_HOSTS                  = "{ \"https://privacy-sandbox-demos-dsp-x.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-x:443\", \"cloudPlatform\": \"GCP\" }, \"https://privacy-sandbox-demos-dsp-y.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-y:443\", \"cloudPlatform\": \"GCP\" } }" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
+    BUYER_SERVER_HOSTS                  = jsonencode({
+      "https://privacy-sandbox-demos-dsp-x.dev" = {
+        "url"           = "dns:///bfe.privacy-sandbox-demos-dsp-x:443",
+        "cloudPlatform" = "GCP"
+      },
+      "https://privacy-sandbox-demos-dsp-y.dev" = {
+        "url"           = "dns:///bfe.privacy-sandbox-demos-dsp-y:443",
+        "cloudPlatform" = "GCP"
+      }
+    })
+    # SELLER_CLOUD_PLATFORMS_MAP          = "PLACEHOLDER" # Example: "{ \"https://partner-seller1.com\": "GCP", \"https://partner-seller2.com\": "AWS"}"
     ENABLE_SELLER_FRONTEND_BENCHMARKING = "false" # Example: "false"
     ENABLE_AUCTION_COMPRESSION          = "false" # Example: "false"
     ENABLE_BUYER_COMPRESSION            = "false" # Example: "false"
@@ -204,7 +214,7 @@ module "seller" {
     TELEMETRY_CONFIG                    = "mode: EXPERIMENT" # Example: "mode: EXPERIMENT"
     COLLECTOR_ENDPOINT                  = "collector-ssp-x-${each.key}.sfe.privacy-sandcastle-dev-ssp-x.web.app:4317" # Example: "collector-seller-1-${each.key}.sfe-gcp.com:4317"
     ENABLE_OTEL_BASED_LOGGING           = "false" # Example: "false"
-    CONSENTED_DEBUG_TOKEN               = "NA" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
+    # CONSENTED_DEBUG_TOKEN               = "PLACEHOLDER" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
     DEBUG_SAMPLE_RATE_MICRO             = "0"
     ENABLE_REPORT_WIN_INPUT_NOISING     = "true" # Example: "true"
     K_ANON_TOTAL_NUM_HASH               = "1000" # Example: "1000"
@@ -253,7 +263,7 @@ module "seller" {
     # NOT_FETCHED: No call to KV server is made. All ads are sent to scoreAd().
     # FETCHED_BUT_OPTIONAL: Call to KV server is made and must not fail. All ads are sent to scoreAd() irrespective of whether their adRenderUrls have scoring signals or not.
     # Any other value/REQUIRED (default): Call to KV server is made and must not fail. Only those ads are sent to scoreAd() that have scoring signals for their adRenderUrl.
-    SCORING_SIGNALS_FETCH_MODE = "REQUIRED"
+    SCORING_SIGNALS_FETCH_MODE = "FETCHED_BUT_OPTIONAL"
 
     # Http headers in sfe request to be passed in bfe request, in lower case separated by comma without space.
     # Example:  HEADER_PASSED_TO_BUYER =  "exp-id,exp-id789"
@@ -308,8 +318,8 @@ module "seller" {
   frontend_domain_name               = local.seller_domain_name
   frontend_dns_zone                  = local.frontend_dns_zone
   operator                           = local.seller_operator
-  service_account_email              = ""    # Example: "bidding-auction-services@{local.gcp_project_id}.iam.gserviceaccount.com"
-  vm_startup_delay_seconds           = 200   # Example: 200
+  service_account_email              = "bidding-auction-ssp-x@gtech-privacy-baservices-dev.iam.gserviceaccount.com"    # Example: "bidding-auction-services@{local.gcp_project_id}.iam.gserviceaccount.com"
+  vm_startup_delay_seconds           = 1200   # Example: 200
   cpu_utilization_percent            = 0.6   # Example: 0.6
   use_confidential_space_debug_image = false # Example: false
   tee_impersonate_service_accounts   = "a-opallowedusr@ps-pa-coord-prd-g3p-svcacc.iam.gserviceaccount.com,b-opallowedusr@ps-prod-pa-type2-fe82.iam.gserviceaccount.com"
@@ -319,7 +329,7 @@ module "seller" {
     otel_collector_image_uri = "otel/opentelemetry-collector-contrib:0.105.0"
     gcs_hmac_key             = module.secrets.gcs_hmac_key
     gcs_hmac_secret          = module.secrets.gcs_hmac_secret
-    gcs_bucket               = "tech-privacy-baservices-dev-collector" # Example: ${name of a gcs bucket}
+    gcs_bucket               = "gtech-privacy-baservices-dev-collector" # Example: ${name of a gcs bucket}
     gcs_bucket_prefix        = "consented-eventmessage-${each.key}" # Example: "consented-eventmessage-${each.key}"
     file_prefix              = local.seller_operator # Example: local.seller_operator
   })
