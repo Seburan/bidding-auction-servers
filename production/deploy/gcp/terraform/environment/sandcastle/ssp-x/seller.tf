@@ -161,7 +161,7 @@ module "seller" {
     GET_BID_RPC_TIMEOUT_MS           = "60000"            # Example: "60000"
     SCORE_ADS_RPC_TIMEOUT_MS         = "60000"            # Example: "60000"
     SELLER_ORIGIN_DOMAIN             = "https://privacy-sandbox-demos-ssp-x.dev"            # Example: "https://sellerorigin.com"
-    K_ANON_API_KEY                   = "" # API Key used to query k-anon service.
+    K_ANON_API_KEY                   = "PLACEHOLDER" # API Key used to query k-anon service.
 
     # [BEGIN] Trusted KV real time signal fetching params
     ENABLE_TKV_V2_BROWSER                  = "false"            # Example: "false", Whether or not to use a trusted KV for browser clients. (Android clients traffic always need a trusted KV.)
@@ -171,7 +171,7 @@ module "seller" {
     # [END] Trusted KV real time signal fetching params
 
     # [BEGIN] Untrusted KV real time signal fetching params
-    KEY_VALUE_SIGNALS_HOST = "https://privacy-sandcastle-dev-ssp-x.web.app/ssp/usecase/bidding-and-auction/ssp-x/service/kv " # Example: "https://keyvaluesignals.com/trusted-signals"
+    KEY_VALUE_SIGNALS_HOST = "https://privacy-sandbox-demos-ssp-x.dev/ssp/usecase/bidding-and-auction/ssp-x/service/kv " # Example: "https://keyvaluesignals.com/trusted-signals"
     # [END] Untrusted KV real time signal fetching params
 
     # BUYER_SERVER_HOSTS                  = "{ \"https://privacy-sandbox-demos-dsp-x.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-x:443\", \"cloudPlatform\": \"GCP\" }, \"https://privacy-sandbox-demos-dsp-y.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-y:443\", \"cloudPlatform\": \"GCP\" } }" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
@@ -196,7 +196,7 @@ module "seller" {
     SELLER_CODE_FETCH_CONFIG            = jsonencode({
         "fetchMode": 0,
         "auctionJsPath": "",
-        "auctionJsUrl": "https://privacy-sandcastle-dev-ssp-x.web.app/js/ssp/usecase/bidding-and-auction/ssp-x/decision-logic.js ",
+        "auctionJsUrl": "https://privacy-sandbox-demos-ssp-x.dev/js/ssp/usecase/bidding-and-auction/ssp-x/decision-logic.js ",
         "urlFetchPeriodMs": 13000000,
         "urlFetchTimeoutMs": 30000,
         "enableSellerDebugUrlGeneration": true,
@@ -204,7 +204,7 @@ module "seller" {
         "enableReportWinUrlGeneration": true,
         "enablePrivateAggregateReporting": false,
         "buyerReportWinJsUrls": {"https://privacy-sandbox-demos-dsp-x.dev":"https://privacy-sandbox-demos-dsp-x.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js",
-                                 "https://privacy-sandbox-demos-dsp-y.dev":"https://privacy-sandbox-demos-dsp-y.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js"
+                                 "https://privacy-sandbox-demos-dsp-y.dev":"https://privacy-sandbox-demos-dsp-y.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-y.js"
                                  }
         # "protectedAppSignalsBuyerReportWinJsUrls": {"https://buyerA_origin.com":"https://buyerA.com/generateBid.js"}
      })
@@ -212,7 +212,7 @@ module "seller" {
     JS_WORKER_QUEUE_LEN                 = "200" # Example: "200".
     ROMA_TIMEOUT_MS                     = "10000" # Example: "10000"
     TELEMETRY_CONFIG                    = "mode: EXPERIMENT" # Example: "mode: EXPERIMENT"
-    COLLECTOR_ENDPOINT                  = "collector-ssp-x-${each.key}.sfe.privacy-sandcastle-dev-ssp-x.web.app:4317" # Example: "collector-seller-1-${each.key}.sfe-gcp.com:4317"
+    COLLECTOR_ENDPOINT                  = "collector-ssp-x-${each.key}.sfe.privacy-sandbox-demos-ssp-x.dev:4317" # Example: "collector-seller-1-${each.key}.sfe-gcp.com:4317"
     ENABLE_OTEL_BASED_LOGGING           = "false" # Example: "false"
     # CONSENTED_DEBUG_TOKEN               = "PLACEHOLDER" # Example: "<unique_id>". Consented debugging requests increase server load in production. A high QPS of these requests can lead to unhealthy servers.
     DEBUG_SAMPLE_RATE_MICRO             = "0"
@@ -334,7 +334,7 @@ module "seller" {
     file_prefix              = local.seller_operator # Example: local.seller_operator
   })
   region_config                     = each.value.region_config
-  enable_tee_container_log_redirect = false
+  enable_tee_container_log_redirect = true
 }
 
 module "seller_frontend_load_balancing" {
