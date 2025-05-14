@@ -196,7 +196,7 @@ module "seller" {
     SELLER_CODE_FETCH_CONFIG            = jsonencode({
         "fetchMode": 0,
         "auctionJsPath": "",
-        "auctionJsUrl": "https://privacy-sandbox-demos-ssp-x.dev/js/ssp/usecase/bidding-and-auction/ssp-x/decision-logic.js ",
+        "auctionJsUrl": "https://privacy-sandbox-demos-ssp-x.dev/js/ssp/usecase/bidding-and-auction/ssp-x/decision-logic.js",
         "urlFetchPeriodMs": 13000000,
         "urlFetchTimeoutMs": 30000,
         "enableSellerDebugUrlGeneration": true,
