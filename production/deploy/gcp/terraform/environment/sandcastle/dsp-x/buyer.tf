@@ -164,7 +164,7 @@ module "buyer" {
     ENABLE_BIDDING_SERVICE_BENCHMARK = "false" # Example: "false"
 
     # Refers to BYOS Buyer Key-Value Server only.
-    BUYER_KV_SERVER_ADDR = "https://privacy-sandcastle-dev-dsp-x.web.app/dsp/service/kv" # Example: "https://kvserver.com/trusted-signals"
+    BUYER_KV_SERVER_ADDR = "https://privacy-sandbox-demos-dsp-x.dev/dsp/service/kv" # Example: "https://kvserver.com/trusted-signals"
 
     # [BEGIN] Trusted KV real time signal fetching params (Protected Audience Only)
     ENABLE_TKV_V2_BROWSER    = "false"            # Severin : if you don't use it set to false and comment the parameters below
@@ -199,7 +199,7 @@ module "buyer" {
     BUYER_CODE_FETCH_CONFIG = jsonencode({
        "fetchMode": 0,
        "biddingJsPath": "",
-       "biddingJsUrl": "https://privacy-sandcastle-dev-dsp-x.web.app/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js",
+       "biddingJsUrl": "https://privacy-sandbox-demos-dsp-x.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js",
        "protectedAppSignalsBiddingJsUrl": "https://example.com/generateBid.js",
        "biddingWasmHelperUrl": "",
        "protectedAppSignalsBiddingWasmHelperUrl": "",
