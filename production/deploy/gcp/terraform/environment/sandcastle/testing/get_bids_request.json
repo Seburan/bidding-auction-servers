@@ -19,8 +19,8 @@
   },
   "auction_signals": "{}",
   "buyer_signals": "{}",
-  "seller": "Placeholder-Should-Match-With-seller_origin_domain-In-SFE-Config",
-  "publisher_name": "example.com",
+  "seller": "https://privacy-sandbox-demos-ssp-x.dev",
+  "publisher_name": "https://privacy-sandbox-demos-news.dev",
   "log_context": {
     "generation_id": "A-UUID",
     "adtech_debug_id": "A-Debug-ID-Useful-For-Debugging"
