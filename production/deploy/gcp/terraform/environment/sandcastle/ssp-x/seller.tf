@@ -177,11 +177,11 @@ module "seller" {
     # BUYER_SERVER_HOSTS                  = "{ \"https://privacy-sandbox-demos-dsp-x.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-x:443\", \"cloudPlatform\": \"GCP\" }, \"https://privacy-sandbox-demos-dsp-y.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-y:443\", \"cloudPlatform\": \"GCP\" } }" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
     BUYER_SERVER_HOSTS                  = jsonencode({
       "https://privacy-sandbox-demos-dsp-x.dev" = {
-        "url"           = "dns:///bfe.privacy-sandbox-demos-dsp-x:443",
+        "url"           = "dns:///dsp-x-dev.bfe.privacy-sandbox-demos-dsp-x.dev:443",
         "cloudPlatform" = "GCP"
       },
       "https://privacy-sandbox-demos-dsp-y.dev" = {
-        "url"           = "dns:///bfe.privacy-sandbox-demos-dsp-y:443",
+        "url"           = "dns:///dsp-y-dev.bfe.privacy-sandbox-demos-dsp-y.dev:443",
         "cloudPlatform" = "GCP"
       }
     })
