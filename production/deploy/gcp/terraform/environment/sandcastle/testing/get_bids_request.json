@@ -3,7 +3,7 @@
   "buyer_input": {
     "interest_groups": [
       {
-        "name": "Test-Interest-Group-Name",
+        "name": "Test-Interest-Group-Dsp-X",
         "bidding_signals_keys": "Sample-key-To-Be-Used-To-Lookup-Real-Time-Signals-From-Buyer-KV",
         "ad_render_ids": [
           "Sample-key-To-Be-Used-To-Lookup-Real-Time-Signals-From-Buyer-KV"
