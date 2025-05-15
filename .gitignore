@@ -69,3 +69,5 @@ core
 tools/debug/pa-integration-tests/local-servers/*.pem
 downloads/chrome*
 downloads/manifest.txt
+get_bids_request.json
+select_ad_request.json
