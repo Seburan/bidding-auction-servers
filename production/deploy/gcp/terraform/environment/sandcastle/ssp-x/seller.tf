@@ -167,11 +167,11 @@ module "seller" {
     ENABLE_TKV_V2_BROWSER                  = "false"            # Example: "false", Whether or not to use a trusted KV for browser clients. (Android clients traffic always need a trusted KV.)
     # TKV_EGRESS_TLS                         = "false"            # Example: "false", Whether or not to use TLS when talking to TKV. (Useful when TKV is not in the same VPC/mesh)
     # TRUSTED_KEY_VALUE_V2_SIGNALS_HOST      = "PLACEHOLDER" # Example: "dns:///keyvaluesignals:443", Address where the TKV is listening.
-    # KEY_VALUE_SIGNALS_FETCH_RPC_TIMEOUT_MS = "60000"            # Example: "60000"
+    KEY_VALUE_SIGNALS_FETCH_RPC_TIMEOUT_MS = "60000"            # Example: "60000"
     # [END] Trusted KV real time signal fetching params
 
     # [BEGIN] Untrusted KV real time signal fetching params
-    KEY_VALUE_SIGNALS_HOST = "https://privacy-sandbox-demos-ssp-x.dev/ssp/usecase/bidding-and-auction/ssp-x/service/kv " # Example: "https://keyvaluesignals.com/trusted-signals"
+    KEY_VALUE_SIGNALS_HOST = "https://privacy-sandbox-demos-ssp-x.dev/ssp/usecase/bidding-and-auction/ssp-x/service/kv" # Example: "https://keyvaluesignals.com/trusted-signals"
     # [END] Untrusted KV real time signal fetching params
 
     # BUYER_SERVER_HOSTS                  = "{ \"https://privacy-sandbox-demos-dsp-x.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-x:443\", \"cloudPlatform\": \"GCP\" }, \"https://privacy-sandbox-demos-dsp-y.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-y:443\", \"cloudPlatform\": \"GCP\" } }" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
