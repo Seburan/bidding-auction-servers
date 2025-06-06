@@ -152,6 +152,14 @@ RAM Limitation
     `will kills off the process holding sidecar if exceed`, but bidding main process will not be
     effected.
 
+### Note on gRPC request deadlines
+
+-   The inference related gRPC request deadlines are individually controlled and by default
+    unlimited, i.e., no deadline. is set. The following flags may be used to set related deadlines:
+    `INFERENCE_MODEL_REGISTRATION_TIMEOUT_MS` for model registration requests,
+    `INFERENCE_MODEL_EXECUTION_TIMEOUT_MS` for predict requests, and
+    `INFERENCE_MODEL_PATHS_REQUEST_TIMEOUT_MS` for get model path requests.
+
 ## Local Testing
 
 ### Start the B&A servers locally for testing/debugging

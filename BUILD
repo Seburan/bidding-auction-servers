@@ -141,6 +141,7 @@ string_flag(
     build_setting_default = "noop",
     values = [
         "noop",
+        "onnxruntime",
         "pytorch",
         "tensorflow",
         "all",
@@ -151,6 +152,15 @@ config_setting(
     name = "inference_noop",
     flag_values = {
         ":inference_runtime": "noop",
+    },
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "inference_onnxruntime",
+    flag_values = {
+        ":inference_build": "yes",
+        ":inference_runtime": "onnxruntime",
     },
     visibility = ["//visibility:public"],
 )

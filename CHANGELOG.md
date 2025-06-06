@@ -2,6 +2,79 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## 4.10.0 (2025-06-06)
+
+### Features
+
+
+* [BYOB] Use batch execute with max pending batches limit, start_by, and finish_by timeouts
+* Add chaffing V2 changes on buyer side
+* Add chaffing v2 changes on seller side
+* Add gRPC deadline for inference service
+* add inference onnxruntime to GCP
+* Add IPv6 Support in GCP
+* Add onnx binary by default in gcp builds
+* add roma metrics for auction service
+* Add runtime flag for specifying SFE <> BFE compression algo
+* Add zstd compression to B&A
+* Apply normal distribution to chaffing V2 for num chaff requests
+* [Azure] add support for azure build bazel build flags
+* [Azure] Added comment to Azure documentation.
+* [Azure] Added more descriptive comments.
+* [Azure] Adding Availability Zones to Azure Kubernetes Service Cluster with virtual ACI nodes via IaC (Terraform).
+* [Azure] Adding Parc ConfigMap Hash to the backend service deployment.
+* [Azure] Adding service name to gRPC-Route Resource.
+* [Azure] b&a docker image build scripts for azure
+* [Azure] Bring Your Own Certificate approach using IaC (Terraform).
+* [Azure] Change DNS Record Name to include Terraform Workspace as env variable name.
+* [Azure] Create a public demo repo for B&A on Azure via IaC (Terraform).
+* [Azure] Create Helm Charts for Parc Server, OTel-collectors, and the B&A servers.
+* [Azure] Create Kubernetes Services to enable traffic to bidding and auction servers pods via IaC (Terraform).
+* [Azure] Create region-specific virtual network and subnets with dynamic delegation via IaC (Terraform).
+* [Azure] Created scalable and customizable multi-region and multi-buyer stacks via IaC (Terraform).
+* [Azure] Creating namespace within AKS cluster
+* [Azure] Deploying Virtual ACI Nodes to provide Confidential Compute via IaC (Terraform)
+* [Azure] Eliminate manual creation of namespace and allowing helm-charts to make on creation.
+* [Azure] Enable Horizontal Pod Autoscaling on bidding and auction servers via IaC (Terraform)
+* [Azure] Enabled TLS encryption and offloading to the AKS Cluster and a Frontend Health Check Policy via IaC (Terraform).
+* [Azure] Implement Azure Manged Prometheus and Managed Grafana via IaC (Terraform).
+* [Azure] Implement buyer and seller modules to cohesively run all of the components as needed via IaC (Terraform).
+* [Azure] Implement Kubernetes Deployments for bidding and auction servers via IaC (Terraform).
+* [Azure] Implement OTel Collector service, deployment, and ConfigMap for telemetry data collection via IaC (Terraform).
+* [Azure] Implement Parc service, deployment, and ConfigMap for getParameter integration via IaC (Terraform).
+* [Azure] Moving up some minor variables to top level and adding to infrastructure_parameters.json via IaC (Terraform).
+* [Azure] Provision AKS cluster with Log Analytics and Key Vault integration for bidding and auction servers via IaC (Terraform).
+* [Azure] Provision IAM roles for virtual nodes, application gateway for containers, and TLS certificates via IaC (Terraform).
+* [Azure] Provision regional application gateway for containers (AGfC) and integrate with traffic manager and AKS via IaC (Terraform).
+* [Azure] Several small improvements and fixes.
+* [Azure] TLS fix in order to use the combined Let's Encrypt and BYOC approach via IaC (Terraform).
+* [Azure] Update Azure Application Insights Metrics Dashboards to include service name, instance id, and region via IaC (Terraform).
+* [Azure] Update multi-region.tf to include the frontend and backend cpu and memory variables via IaC (Terraform).
+* [Azure] Update Parc Implementation to reflect latest Parc Server team changes via IaC (Terraform).
+* [Azure] Update the Horizontal Pod Autoscaler YAMLs in the B&A Servers Helm Chart via IaC (Terraform).
+* [Azure] Update the Infrastructure Parameters JSON to match shared Let's Encrypt TLS Cert via IaC (Terraform).
+* [Azure] Update the managed prometheus and grafana to be enabled by a flag via IaC (Terraform).
+* [Azure] Updating B&A Server images to include Parc internal endpoint address as currently configured in the IaC (Terraform).
+* Enable BYOB batching feature for AWS
+* Enable ONNX Sidecar for B&A prod build.
+* log output parsing errors for inference proto parsing
+* support request json to proto parsing (for tensorflow)
+* Upgrade to build-system 1.0.0
+* use runtime flag to enable inference proto parsing
+
+
+### Bug Fixes
+
+* [fDO attestation] libtld util needs to account for the case where subdomain exists & doesn't exist in the URL
+* Construct browser signals with rapidjson
+* Fix readonly variable assignment
+* Move TF metrics from seller to roma dashboard due to the dashboard widget limit
+* Pass ROMA timeout parameter to stop UDF execution after timeout
+* Potential crash in auction service due to data race
+* typos in TF metrics dashboards
+* Upgrade AWS linux kernel to optimize BYOB
+
+
 ## 4.9.0 (2025-04-16)
 
 

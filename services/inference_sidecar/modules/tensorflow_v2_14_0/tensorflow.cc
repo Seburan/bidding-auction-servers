@@ -54,6 +54,7 @@
 #include "utils/request_parser.h"
 
 #include "tensorflow_parser.h"
+#include "tensorflow_proto_parser.h"
 #include "validator.h"
 
 ABSL_FLAG(bool, testonly_disable_model_freezing, false,
@@ -94,26 +95,10 @@ void DeleteFromRamFileSystem(const std::string& path) {
   }
 }
 
-absl::StatusOr<std::vector<TensorWithName>> PredictPerModel(
-    std::shared_ptr<tensorflow::SavedModelBundle> model,
-    const InferenceRequest& inference_request) {
-  std::vector<std::pair<std::string, tensorflow::Tensor>> inputs;
-  for (const auto& tensor : inference_request.inputs) {
-    if (tensor.tensor_name.empty()) {
-      return absl::InvalidArgumentError(absl::StrCat(
-          kInferenceTensorInputNameError,
-          ". Message: ", "Name is required for each TensorFlow tensor input."));
-    }
-    auto tf_tensor = ConvertFlatArrayToTensor(tensor);
-    if (!tf_tensor.ok()) {
-      return absl::InvalidArgumentError(
-          absl::StrCat(kInferenceInputTensorConversionError,
-                       ". Message: ", tf_tensor.status().message()));
-    }
-    inputs.emplace_back(tensor.tensor_name, *tf_tensor);
-  }
-
-  absl::string_view model_key = inference_request.model_path;
+absl::StatusOr<std::vector<TensorWithName>> PredictPerModelInternal(
+    const std::vector<std::pair<std::string, tensorflow::Tensor>>& inputs,
+    const std::shared_ptr<tensorflow::SavedModelBundle>& model,
+    const absl::string_view model_key) {
   const auto& signature_map = model->meta_graph_def.signature_def();
   if (signature_map.find("serving_default") == signature_map.end()) {
     return absl::InternalError(absl::StrCat(
@@ -148,6 +133,52 @@ absl::StatusOr<std::vector<TensorWithName>> PredictPerModel(
   }
 
   return zipped_vector;
+}
+
+// TODO(b/398917990): Deprecate the function after the proto migration.
+absl::StatusOr<std::vector<TensorWithName>> PredictPerModelFromJson(
+    std::shared_ptr<tensorflow::SavedModelBundle> model,
+    const InferenceRequest& inference_request) {
+  std::vector<std::pair<std::string, tensorflow::Tensor>> inputs;
+  for (const auto& tensor : inference_request.inputs) {
+    if (tensor.tensor_name.empty()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          kInferenceTensorInputNameError,
+          ". Message: Name is required for each TensorFlow tensor input."));
+    }
+    auto tf_tensor = ConvertFlatArrayToTensor(tensor);
+    if (!tf_tensor.ok()) {
+      return absl::InvalidArgumentError(
+          absl::StrCat(kInferenceInputTensorConversionError,
+                       ". Message: ", tf_tensor.status().message()));
+    }
+    inputs.emplace_back(tensor.tensor_name, *tf_tensor);
+  }
+
+  absl::string_view model_key = inference_request.model_path;
+  return PredictPerModelInternal(inputs, model, model_key);
+}
+
+absl::StatusOr<std::vector<TensorWithName>> PredictPerModelFromProto(
+    std::shared_ptr<tensorflow::SavedModelBundle> model,
+    const InferenceRequestProto& inference_request) {
+  std::vector<std::pair<std::string, tensorflow::Tensor>> inputs;
+  for (const TensorProto& tensor : inference_request.tensors()) {
+    if (tensor.tensor_name().empty()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          kInferenceTensorInputNameError,
+          ". Message: Name is required for each TensorFlow tensor input."));
+    }
+    auto tf_tensor = ConvertProtoToTensor(tensor);
+    if (!tf_tensor.ok()) {
+      return absl::InvalidArgumentError(
+          absl::StrCat(kInferenceInputTensorConversionError,
+                       ". Message: ", tf_tensor.status().message()));
+    }
+    inputs.emplace_back(tensor.tensor_name(), *tf_tensor);
+  }
+  absl::string_view model_key = inference_request.model_path();
+  return PredictPerModelInternal(inputs, model, model_key);
 }
 
 absl::Status FreezeSavedModel(tensorflow::SessionOptions& session_options,
@@ -228,7 +259,7 @@ TensorFlowModelConstructor(const InferenceSidecarRuntimeConfig& config,
               "Warm up request using different model path.");
         }
         auto inference_response =
-            PredictPerModel(model_bundle, inference_request);
+            PredictPerModelFromJson(model_bundle, inference_request);
         if (!inference_response.ok()) {
           return inference_response.status();
         }
@@ -267,13 +298,117 @@ TensorflowModule::~TensorflowModule() {
   }
 }
 
-absl::StatusOr<PredictResponse> TensorflowModule::Predict(
-    const PredictRequest& request, const RequestContext& request_context) {
-  PredictResponse predict_response;
+void TensorflowModule::PredictFromProtoHelper(
+    const PredictRequest& request, const RequestContext& request_context,
+    PredictResponse& predict_response) {
   absl::Time start_inference_execution_time = absl::Now();
-  AddMetric(predict_response, "kInferenceRequestSize", request.ByteSizeLong());
-  absl::StatusOr<std::vector<ParsedRequestOrError>> parsed_requests =
-      ParseJsonInferenceRequest(request.input());
+  BatchInferenceRequest parsed_requests_proto;
+  parsed_requests_proto = request.proto_input();
+  size_t parsed_request_size = parsed_requests_proto.request_size();
+  std::vector<std::future<absl::StatusOr<std::vector<TensorWithName>>>> tasks(
+      parsed_request_size);
+  std::vector<InferenceResponseProto> batch_outputs_proto(parsed_request_size);
+  for (size_t task_id = 0; task_id < parsed_request_size; ++task_id) {
+    const InferenceRequestProto inference_request_proto =
+        parsed_requests_proto.request(task_id);
+    const std::string& model_path = inference_request_proto.model_path();
+    store_->IncrementModelInferenceCount(model_path);
+    INFERENCE_LOG(INFO, request_context)
+        << "Received inference request to model: " << model_path;
+    absl::StatusOr<std::shared_ptr<tensorflow::SavedModelBundle>> model =
+        store_->GetModel(model_path, request.is_consented());
+    if (!model.ok()) {
+      AddMetric(predict_response, "kInferenceErrorCountByErrorCode", 1,
+                std::string(kInferenceModelNotFoundError));
+      INFERENCE_LOG(ERROR, request_context)
+          << "Fails to get model: " << model_path
+          << " Reason: " << model.status();
+      InferenceResponseProto response;
+      response.set_model_path(model_path);
+      ErrorProto* error = response.mutable_error();
+      error->set_description(std::string(model.status().message()));
+      error->set_error_type(ErrorProto::MODEL_NOT_FOUND);
+      batch_outputs_proto[task_id] = std::move(response);
+    } else {
+      // Only log count by model for available models since there is no metric
+      // partition for unregistered models.
+      AddMetric(predict_response, "kInferenceRequestCountByModel", 1,
+                model_path);
+      int batch_count = inference_request_proto.tensors(0).tensor_shape(0);
+      AddMetric(predict_response, "kInferenceRequestBatchCountByModel",
+                batch_count, model_path);
+      tasks[task_id] = std::async(std::launch::async, &PredictPerModelFromProto,
+                                  *model, inference_request_proto);
+    }
+  }
+
+  for (size_t task_id = 0; task_id < parsed_request_size; ++task_id) {
+    if (!batch_outputs_proto[task_id].has_error()) {
+      absl::StatusOr<std::vector<TensorWithName>> tensors =
+          tasks[task_id].get();
+
+      const std::string& model_path =
+          parsed_requests_proto.request(task_id).model_path();
+      if (!tensors.ok()) {
+        AddMetric(predict_response, "kInferenceErrorCountByErrorCode", 1,
+                  std::optional(
+                      ExtractErrorCodeFromMessage(tensors.status().message())));
+        AddMetric(predict_response, "kInferenceRequestFailedCountByModel", 1,
+                  model_path);
+        INFERENCE_LOG(ERROR, request_context)
+            << "Inference fails for model: " << model_path
+            << " Reason: " << tensors.status();
+
+        InferenceResponseProto response;
+        response.set_model_path(model_path);
+        ErrorProto* error = response.mutable_error();
+        error->set_description(std::string(tensors.status().message()));
+        error->set_error_type(tensors.status().code() ==
+                                      absl::StatusCode::kInvalidArgument
+                                  ? ErrorProto::INPUT_PARSING
+                                  : ErrorProto::MODEL_EXECUTION);
+        batch_outputs_proto[task_id] = std::move(response);
+
+      } else {
+        int model_execution_time_ms =
+            (absl::Now() - start_inference_execution_time) /
+            absl::Milliseconds(1);
+        AddMetric(predict_response, "kInferenceRequestDurationByModel",
+                  model_execution_time_ms, model_path);
+        // convert tensor to proto
+        InferenceResponseProto response;
+        response.set_model_path(model_path);
+        for (const auto& [tensor_name, tensor] : tensors.value()) {
+          const absl::StatusOr<TensorProto> result =
+              ConvertTensorToProto(tensor_name, tensor);
+          if (!result.ok()) {
+            ErrorProto* error = response.mutable_error();
+            error->set_description(std::string(result.status().message()));
+            error->set_error_type(ErrorProto::OUTPUT_PARSING);
+          } else {
+            *response.add_tensors() = std::move(result.value());
+          }
+        }
+        batch_outputs_proto[task_id] = std::move(response);
+      }
+    }
+  }
+  BatchInferenceResponse batch_inference_response;
+  for (InferenceResponseProto& response : batch_outputs_proto) {
+    *batch_inference_response.add_response() =
+        std::move(response);  // Move each InferenceResponseProto
+  }
+  predict_response.mutable_proto_output()->CopyFrom(
+      std::move(batch_inference_response));
+}
+
+// TODO(b/398917990): Deprecate the function after the proto migration.
+void TensorflowModule::PredictFromJsonHelper(
+    const PredictRequest& request, const RequestContext& request_context,
+    PredictResponse& predict_response) {
+  absl::Time start_inference_execution_time = absl::Now();
+  absl::StatusOr<std::vector<ParsedRequestOrError>> parsed_requests;
+  parsed_requests = ParseJsonInferenceRequest(request.input());
   if (!parsed_requests.ok()) {
     AddMetric(predict_response, "kInferenceErrorCountByErrorCode", 1,
               std::string(kInferenceUnableToParseRequest));
@@ -281,15 +416,13 @@ absl::StatusOr<PredictResponse> TensorflowModule::Predict(
     predict_response.set_output(CreateBatchErrorString(
         Error{.error_type = Error::INPUT_PARSING,
               .description = std::string(parsed_requests.status().message())}));
-    return predict_response;
+    return;
   }
-
-  AddMetric(predict_response, "kInferenceRequestCount", 1);
-
-  std::vector<TensorsOrError> batch_outputs(parsed_requests->size());
+  size_t parsed_request_size = parsed_requests->size();
+  std::vector<TensorsOrError> batch_outputs(parsed_request_size);
   std::vector<std::future<absl::StatusOr<std::vector<TensorWithName>>>> tasks(
-      parsed_requests->size());
-  for (size_t task_id = 0; task_id < parsed_requests->size(); ++task_id) {
+      parsed_request_size);
+  for (size_t task_id = 0; task_id < parsed_request_size; ++task_id) {
     if ((*parsed_requests)[task_id].request) {
       const InferenceRequest& inference_request =
           (*parsed_requests)[task_id].request.value();
@@ -317,8 +450,9 @@ absl::StatusOr<PredictResponse> TensorflowModule::Predict(
         int batch_count = inference_request.inputs[0].tensor_shape[0];
         AddMetric(predict_response, "kInferenceRequestBatchCountByModel",
                   batch_count, model_path);
-        tasks[task_id] = std::async(std::launch::async, &PredictPerModel,
-                                    *model, inference_request);
+        tasks[task_id] =
+            std::async(std::launch::async, &PredictPerModelFromJson, *model,
+                       inference_request);
       }
     } else {
       const Error error = (*parsed_requests)[task_id].error.value();
@@ -327,7 +461,7 @@ absl::StatusOr<PredictResponse> TensorflowModule::Predict(
     }
   }
 
-  for (size_t task_id = 0; task_id < parsed_requests->size(); ++task_id) {
+  for (size_t task_id = 0; task_id < parsed_request_size; ++task_id) {
     if (!batch_outputs[task_id].error) {
       absl::StatusOr<std::vector<TensorWithName>> tensors =
           tasks[task_id].get();
@@ -374,7 +508,7 @@ absl::StatusOr<PredictResponse> TensorflowModule::Predict(
     predict_response.set_output(CreateBatchErrorString(
         Error{.error_type = Error::OUTPUT_PARSING,
               .description = "Error during output parsing to json."}));
-    return predict_response;
+    return;
   }
   for (const ParsedRequestOrError& parsed_request : *parsed_requests) {
     if (parsed_request.request) {
@@ -384,6 +518,20 @@ absl::StatusOr<PredictResponse> TensorflowModule::Predict(
   }
 
   predict_response.set_output(output_json.value());
+}
+
+absl::StatusOr<PredictResponse> TensorflowModule::Predict(
+    const PredictRequest& request, const RequestContext& request_context) {
+  PredictResponse predict_response;
+  absl::Time start_inference_execution_time = absl::Now();
+  AddMetric(predict_response, "kInferenceRequestSize", request.ByteSizeLong());
+  AddMetric(predict_response, "kInferenceRequestCount", 1);
+  const bool inference_use_proto = request.has_proto_input();
+  if (!inference_use_proto) {
+    PredictFromJsonHelper(request, request_context, predict_response);
+  } else {
+    PredictFromProtoHelper(request, request_context, predict_response);
+  }
   AddMetric(predict_response, "kInferenceResponseSize",
             predict_response.ByteSizeLong());
   int inference_execution_time_ms =

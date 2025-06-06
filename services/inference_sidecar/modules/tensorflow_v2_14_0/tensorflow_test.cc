@@ -31,10 +31,12 @@
 #include "absl/time/time.h"
 #include "gtest/gtest.h"
 #include "modules/module_interface.h"
+#include "proto/inference_payload.pb.h"
 #include "proto/inference_sidecar.pb.h"
 #include "utils/file_util.h"
 #include "utils/inference_metric_util.h"
 #include "utils/log.h"
+#include "utils/request_proto_parser.h"
 #include "utils/test_util.h"
 
 ABSL_DECLARE_FLAG(bool, testonly_disable_model_validation);
@@ -325,6 +327,35 @@ TEST(TensorflowModuleTest, JsonError_PredictModelNotRegistered) {
           R"({"response":[{"model_path":"./benchmark_models/pcvr","error":{"error_type":"MODEL_NOT_FOUND","description")"));
 }
 
+TEST(TensorflowModuleTest, Proto_JsonError_PredictModelNotRegistered) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kPcvrJsonRequest, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+
+  EXPECT_THAT(
+      output_json.value(),
+      StartsWith(
+          R"({"response":[{"model_path":"./benchmark_models/pcvr","error":{"error_type":"MODEL_NOT_FOUND","description")"));
+}
+
 TEST(TensorflowModuleTest, Success_Predict) {
   InferenceSidecarRuntimeConfig config;
   std::unique_ptr<ModuleInterface> tensorflow_module =
@@ -341,6 +372,43 @@ TEST(TensorflowModuleTest, Success_Predict) {
   ASSERT_TRUE(predict_response.ok());
   ASSERT_FALSE(predict_response->output().empty());
   ASSERT_EQ(predict_response->output(), kFrozenPcvrResponse);
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  EXPECT_EQ(predict_response->metrics_list().size(), 7);
+}
+
+TEST(TensorflowModuleTest, Proto_Success_Predict) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kFrozenPcvrJsonRequest, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  BatchInferenceResponse response = predict_response->proto_output();
+  EXPECT_EQ(response.DebugString(),
+            "response {\n  model_path: \"./benchmark_models/frozen_pcvr\"\n  "
+            "tensors {\n    tensor_shape: 1\n    tensor_shape: 1\n    "
+            "tensor_name: \"PartitionedCall:0\"\n    tensor_content {\n      "
+            "tensor_content_float: 0.0117480606\n    }\n  }\n}\n");
+  EXPECT_EQ(predict_response->proto_output().response(0).tensors(0).data_type(),
+            DataTypeProto::FLOAT);
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(response, parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  EXPECT_EQ(output_json.value(), kFrozenPcvrResponse);
   ASSERT_FALSE(predict_response->metrics_list().empty());
   EXPECT_EQ(predict_response->metrics_list().size(), 7);
 }
@@ -419,6 +487,61 @@ TEST(TensorflowModuleTest, Success_Predict_ValidateMetrics) {
       predict_response->metrics_list().end());
 }
 
+TEST(TensorflowModuleTest, Proto_Success_Predict_ValidateMetrics) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kFrozenPcvrJsonRequest, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+
+  ASSERT_EQ(output_json.value(), kFrozenPcvrResponse);
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  EXPECT_EQ(predict_response->metrics_list().size(), 7);
+  CheckMetricList(predict_response->metrics_list(), "kInferenceRequestCount", 0,
+                  1);
+  CheckMetricList(predict_response->metrics_list(), "kInferenceRequestSize", 0,
+                  481);
+  CheckMetricList(predict_response->metrics_list(), "kInferenceResponseSize", 0,
+                  354);
+  CheckMetricList(predict_response->metrics_list(),
+                  "kInferenceRequestBatchCountByModel", 0, 1);
+
+  auto it = predict_response->metrics_list().find("kInferenceRequestDuration");
+  ASSERT_NE(it, predict_response->metrics_list().end())
+      << "kInferenceRequestDuration metric is missing.";
+  EXPECT_GT(it->second.metrics().at(0).value_int32(), 0)
+      << "kInferenceRequestDuration should be greater than zero.";
+  result = ConvertJsonToProto(kPcvrJsonRequest2Models, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+  predict_response = tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  // Don't accumulate metrics for unregistered models.
+  ASSERT_TRUE(
+      predict_response->metrics_list().find("./benchmark_models/pcvr") ==
+      predict_response->metrics_list().end());
+}
+
 TEST(TensorflowModuleTest, Success_PredictWithConsentedRequest) {
   InferenceSidecarRuntimeConfig config;
   std::unique_ptr<ModuleInterface> tensorflow_module =
@@ -436,6 +559,36 @@ TEST(TensorflowModuleTest, Success_PredictWithConsentedRequest) {
   ASSERT_TRUE(predict_response.ok());
   ASSERT_FALSE(predict_response->output().empty());
   ASSERT_EQ(predict_response->output(), kFrozenPcvrResponse);
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  EXPECT_EQ(predict_response->metrics_list().size(), 7);
+}
+
+TEST(TensorflowModuleTest, Proto_Success_PredictWithConsentedRequest) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kFrozenPcvrJsonRequest, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+  predict_request.set_is_consented(true);
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  ASSERT_EQ(output_json.value(), kFrozenPcvrResponse);
   ASSERT_FALSE(predict_response->metrics_list().empty());
   EXPECT_EQ(predict_response->metrics_list().size(), 7);
 }
@@ -520,6 +673,41 @@ TEST(TensorflowModuleTest, Success_PredictBatchSize2) {
   ASSERT_TRUE(predict_response.ok());
   ASSERT_FALSE(predict_response->output().empty());
   ASSERT_EQ(predict_response->output(),
+            "{\"response\":[{\"model_path\":\"./benchmark_models/"
+            "frozen_pcvr\",\"tensors\":[{\"tensor_name\":\"PartitionedCall:"
+            "0\",\"tensor_shape\":[2,1],\"data_type\":\"FLOAT\",\"tensor_"
+            "content\":[0.011748060584068299,0.10649197548627854]}]}]}");
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  EXPECT_EQ(predict_response->metrics_list().size(), 7);
+}
+
+TEST(TensorflowModuleTest, Proto_Success_PredictBatchSize2) {
+  InferenceSidecarRuntimeConfig config;
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kFrozenPcvrJsonRequestBatchSize2, parsing_errors);
+  ASSERT_TRUE(result.ok());
+
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request).ok());
+
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+
+  ASSERT_EQ(output_json.value(),
             "{\"response\":[{\"model_path\":\"./benchmark_models/"
             "frozen_pcvr\",\"tensors\":[{\"tensor_name\":\"PartitionedCall:"
             "0\",\"tensor_shape\":[2,1],\"data_type\":\"FLOAT\",\"tensor_"
@@ -748,6 +936,38 @@ TEST(TensorflowModuleTest, JsonError_PredictMissingTensorName) {
   ASSERT_TRUE(predict_response.ok());
   EXPECT_THAT(
       predict_response->output(),
+      StartsWith(
+          R"({"response":[{"model_path":"./benchmark_models/frozen_pcvr","error":{"error_type":"INPUT_PARSING","description")"));
+}
+
+TEST(TensorflowModuleTest, Proto_JsonError_PredictMissingTensorName) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kPcvrJsonRequestMissingTensorName, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+
+  EXPECT_THAT(
+      output_json.value(),
       StartsWith(
           R"({"response":[{"model_path":"./benchmark_models/frozen_pcvr","error":{"error_type":"INPUT_PARSING","description")"));
 }
@@ -984,6 +1204,49 @@ TEST(TensorflowModuleTest, Success_PredictWith2Models) {
   EXPECT_EQ(predict_response->metrics_list().size(), 7);
 }
 
+TEST(TensorflowModuleTest, Proto_Success_PredictWith2Models) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request_1;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request_1).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request_1).ok());
+
+  RegisterModelRequest register_request_2;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel2Dir, register_request_2).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request_2).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kPcvrJsonRequestWith2Model, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  EXPECT_EQ(output_json.value(),
+            "{\"response\":[{\"model_path\":\"./benchmark_models/"
+            "frozen_pcvr\",\"tensors\":[{\"tensor_name\":\"PartitionedCall:"
+            "0\",\"tensor_shape\":[2,1],\"data_type\":\"FLOAT\",\"tensor_"
+            "content\":[0.011748060584068299,0.10649197548627854]}]},{\"model_"
+            "path\":\"./benchmark_models/"
+            "frozen_pctr\",\"tensors\":[{\"tensor_name\":\"PartitionedCall:"
+            "0\",\"tensor_shape\":[2,1],\"data_type\":\"FLOAT\",\"tensor_"
+            "content\":[0.8405165076255798,0.7376009225845337]}]}]}");
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  EXPECT_EQ(predict_response->metrics_list().size(), 7);
+}
+
 constexpr char kPcvrJsonRequestWith1ModelVariedSize[] = R"json({
   "request" : [{
     "model_path" : "./benchmark_models/frozen_pcvr",
@@ -1139,6 +1402,46 @@ TEST(TensorflowModuleTest,
   EXPECT_EQ(predict_response->metrics_list().size(), 7);
 }
 
+TEST(TensorflowModuleTest,
+     Proto_PredictSameModelVariedBatchSizesMultipleRequestsSuccess) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  ASSERT_TRUE(PopulateRegisterModelRequest(std::string(kFrozenModel1Dir),
+                                           register_request)
+                  .ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kPcvrJsonRequestWith1ModelVariedSize, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  EXPECT_EQ(output_json.value(),
+            "{\"response\":[{\"model_path\":\"./benchmark_models/"
+            "frozen_pcvr\",\"tensors\":[{\"tensor_name\":\"PartitionedCall:"
+            "0\",\"tensor_shape\":[2,1],\"data_type\":\"FLOAT\",\"tensor_"
+            "content\":[0.011748060584068299,0.10649197548627854]}]},{\"model_"
+            "path\":\"./benchmark_models/"
+            "frozen_pcvr\",\"tensors\":[{\"tensor_name\":\"PartitionedCall:"
+            "0\",\"tensor_shape\":[1,1],\"data_type\":\"FLOAT\",\"tensor_"
+            "content\":[0.006647615227848291]}]}]}");
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  EXPECT_EQ(predict_response->metrics_list().size(), 7);
+}
+
 constexpr char kPcvrJsonRequestEmbeddingModel[] = R"json({
   "request" : [{
     "model_path" : "./benchmark_models/frozen_embedding",
@@ -1229,6 +1532,48 @@ TEST(TensorflowModuleTest, Success_PredictEmbed) {
       "3626940846443176,0.13941356539726258]}"));
   EXPECT_TRUE(absl::StrContains(
       predict_response->output(),
+      "{\"tensor_name\":\"PartitionedCall:1\",\"tensor_shape\":[1,1],"
+      "\"data_type\":\"INT32\",\"tensor_content\":[0]}"));
+  ASSERT_FALSE(predict_response->metrics_list().empty());
+  EXPECT_EQ(predict_response->metrics_list().size(), 7);
+}
+
+TEST(TensorflowModuleTest, Proto_Success_PredictEmbed) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenEmbeddingModelDir, register_request)
+          .ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kPcvrJsonRequestEmbeddingModel, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  // The order of output tensors in Tensorflow is not constant so we check
+  // tensor output separately.
+  EXPECT_TRUE(absl::StrContains(
+      output_json.value(),
+      "{\"tensor_name\":\"PartitionedCall:0\",\"tensor_shape\":[1,6],"
+      "\"data_type\":\"FLOAT\",\"tensor_content\":[0.7276111245155335,0."
+      "0728105902671814,0.11053494364023209,0.6876803636550903,0."
+      "3626940846443176,0.13941356539726258]}"));
+  EXPECT_TRUE(absl::StrContains(
+      output_json.value(),
       "{\"tensor_name\":\"PartitionedCall:1\",\"tensor_shape\":[1,1],"
       "\"data_type\":\"INT32\",\"tensor_content\":[0]}"));
   ASSERT_FALSE(predict_response->metrics_list().empty());
@@ -1343,6 +1688,40 @@ TEST(TensorflowModuleTest, CanReturnPartialBatchOutputWithError) {
   absl::StatusOr predict_output = tensorflow_module->Predict(predict_request);
   ASSERT_TRUE(predict_output.ok());
   EXPECT_THAT(predict_output->output(),
+              AllOf(HasSubstr("MODEL_EXECUTION"), HasSubstr("MODEL_NOT_FOUND"),
+                    HasSubstr("\"tensors\":")));
+}
+
+TEST(TensorflowModuleTest, Proto_CanReturnPartialBatchOutputWithError) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request_1;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request_1).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request_1).ok());
+  RegisterModelRequest register_request_2;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel2Dir, register_request_2).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request_2).ok());
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kMixedValidInvalidBatchJsonRequest, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_response.ok());
+
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  EXPECT_THAT(output_json.value(),
               AllOf(HasSubstr("MODEL_EXECUTION"), HasSubstr("MODEL_NOT_FOUND"),
                     HasSubstr("\"tensors\":")));
 }
@@ -1491,6 +1870,50 @@ TEST(TensorflowModuleTest, CanReturnPartialBatchOutputWithParsingError) {
   EXPECT_THAT(predict_output->output(), HasSubstr("\"tensors\":"));
 }
 
+TEST(TensorflowModuleTest, Proto_CanReturnPartialBatchOutputWithParsingError) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request_1;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel1Dir, register_request_1).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request_1).ok());
+  RegisterModelRequest register_request_2;
+  ASSERT_TRUE(
+      PopulateRegisterModelRequest(kFrozenModel2Dir, register_request_2).ok());
+  ASSERT_TRUE(tensorflow_module->RegisterModel(register_request_2).ok());
+
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result = ConvertJsonToProto(
+      kMixedValidInvalidBatchJsonRequest_WithParsingError, parsing_errors);
+  ASSERT_TRUE(result.ok());
+  PredictRequest predict_request;
+  predict_request.mutable_proto_input()->CopyFrom(result.value());
+
+  absl::StatusOr<PredictResponse> predict_response =
+      tensorflow_module->Predict(predict_request);
+
+  absl::StatusOr predict_output = tensorflow_module->Predict(predict_request);
+  ASSERT_TRUE(predict_output.ok());
+  // invalid parsing error from execution
+
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response->proto_output(), parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+
+  EXPECT_THAT(output_json.value(), AllOf(HasSubstr("MODEL_EXECUTION"),
+                                         HasSubstr("MODEL_NOT_FOUND")));
+  // invalid parsing error from request parser
+  EXPECT_THAT(output_json.value(),
+              AllOf(HasSubstr("INPUT_PARSING"),
+                    HasSubstr("Missing model_path in the JSON document")));
+  // valid requests are executed
+  EXPECT_THAT(output_json.value(), HasSubstr("\"tensors\":"));
+}
+
 constexpr char kTwoInValidParsingInputs[] = R"json({
   "request" : [{
     "model_path" : "simple_model",
@@ -1582,6 +2005,28 @@ TEST(TensorflowModuleTest, PredictInvalidInputNoModelPath) {
             "JSON document\"}}]}");
 }
 
+TEST(TensorflowModuleTest, Proto_PredictInvalidInputNoModelPath) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kInvalidInputNoModelPath, parsing_errors);
+  ASSERT_FALSE(result.ok());
+  BatchInferenceResponse inference_response;
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(inference_response, parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  // invalid parsing error from request parser
+  EXPECT_EQ(output_json.value(),
+            "{\"response\":[{\"model_path\":\"\",\"error\":{\"error_type\":"
+            "\"INPUT_PARSING\",\"description\":\"Missing model_path in the "
+            "JSON document\"}}]}");
+}
+
 constexpr char kInvalidInputWithModelPath[] = R"json({
   "request" : [{
     "model_path" : "simple_model",
@@ -1609,6 +2054,29 @@ TEST(TensorflowModuleTest, PredictInvalidInputWithModelPath) {
   ASSERT_TRUE(predict_response.ok());
   // invalid parsing error from request parser
   EXPECT_EQ(predict_response->output(),
+            "{\"response\":[{\"model_path\":\"simple_model\",\"error\":{"
+            "\"error_type\":\"INPUT_PARSING\",\"description\":\"Invalid JSON "
+            "format: Unsupported 'data_type' field NOTSUPPORTED\"}}]}");
+}
+
+TEST(TensorflowModuleTest, Proto_PredictInvalidInputWithModelPath) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> tensorflow_module =
+      ModuleInterface::Create(config);
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  absl::StatusOr<BatchInferenceRequest> result =
+      ConvertJsonToProto(kInvalidInputWithModelPath, parsing_errors);
+  ASSERT_FALSE(result.ok());  // all requests error
+
+  // invalid parsing error from request parser
+  BatchInferenceResponse predict_response;
+  absl::StatusOr<BatchInferenceResponse> merged_result =
+      MergeBatchResponse(predict_response, parsing_errors);
+  ASSERT_TRUE(merged_result.ok());
+  absl::StatusOr<std::string> output_json =
+      ConvertProtoToJson(merged_result.value());
+  ASSERT_TRUE(output_json.ok());
+  EXPECT_EQ(output_json.value(),
             "{\"response\":[{\"model_path\":\"simple_model\",\"error\":{"
             "\"error_type\":\"INPUT_PARSING\",\"description\":\"Invalid JSON "
             "format: Unsupported 'data_type' field NOTSUPPORTED\"}}]}");

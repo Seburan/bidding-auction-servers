@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,10 +16,14 @@
 
 #include <gmock/gmock-matchers.h>
 
+#include <grpcpp/client_context.h>
+
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/civil_time.h"
+#include "absl/time/time.h"
 #include "gtest/gtest.h"
 #include "services/bidding_service/inference/inference_flags.h"
 #include "src/roma/interface/roma.h"
@@ -40,6 +44,24 @@ constexpr absl::string_view kRuntimeConfig = R"json({
   "cpuset": [0, 1]
 })json";
 
+// Helper function to assert that a given grpc::ClientContext has a deadline
+// that is approximately equal to an expected duration from now within a
+// specified tolerance.
+void ExpectDeadlineApproximately(grpc::ClientContext& context,
+                                 absl::Duration expected_duration_from_now,
+                                 absl::Duration tolerance) {
+  const absl::Time call_time = absl::Now();
+  absl::Time expected_deadline = call_time + expected_duration_from_now;
+  absl::Time actual_deadline = absl::FromChrono(context.deadline());
+  absl::Duration time_difference =
+      absl::AbsDuration(actual_deadline - expected_deadline);
+
+  EXPECT_LE(time_difference, tolerance)
+      << "Deadline mismatch. Expected: " << absl::FormatTime(expected_deadline)
+      << ", Actual: " << absl::FormatTime(actual_deadline)
+      << ", Difference: " << time_difference << ", Tolerance: " << tolerance;
+}
+
 class InferenceUtilsTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -47,6 +69,7 @@ class InferenceUtilsTest : public ::testing::Test {
     absl::SetFlag(&FLAGS_inference_sidecar_binary_path,
                   GetFilePath(kSidecarBinary));
     absl::SetFlag(&FLAGS_inference_sidecar_runtime_config, kRuntimeConfig);
+    absl::SetFlag(&FLAGS_inference_model_execution_timeout_ms, absl::nullopt);
   }
 
  private:
@@ -55,6 +78,22 @@ class InferenceUtilsTest : public ::testing::Test {
 
 // TODO(b/322030670): Making static SandboxExecutor compatible with multiple
 // tests.
+
+constexpr char kSimpleModel[] = R"json({
+  "request" : [{
+    "model_path" : "./benchmark_models/pcvr",
+    "tensors" : [
+    {
+      "tensor_name": "serving_default_int_input5:0",
+      "data_type": "INT64",
+      "tensor_shape": [
+        2, 1
+      ],
+      "tensor_content": ["7", "3"]
+    }
+  ]
+}]
+    })json";
 
 TEST_F(InferenceUtilsTest, TestAPIOutputs) {
   SandboxExecutor& inference_executor = Executor();
@@ -65,12 +104,13 @@ TEST_F(InferenceUtilsTest, TestAPIOutputs) {
   google::scp::roma::proto::FunctionBindingIoProto input_output_proto;
   google::scp::roma::FunctionBindingPayload<RomaRequestSharedContext> wrapper{
       input_output_proto, {}};
-  wrapper.io_proto.set_input_string(absl::StrCat("1.0"));
+  wrapper.io_proto.set_input_string(absl::StrCat(kSimpleModel));
   wrapper.io_proto.set_output_string(kInit);
   RunInference(wrapper);
   // TODO(b/317124477): Update the output string after Tensorflow execution
   // logic. Currently, this test uses a test inference module that doesn't
   // populate the output string.
+  // TODO(b/416303068): Add test for inference using proto.
   ASSERT_EQ(wrapper.io_proto.output_string(), "0.57721");
 
   // make sure GetModelPaths returns the registered model
@@ -130,6 +170,32 @@ TEST_F(InferenceUtilsTest, GetModelResponseToJsonOuput) {
   spec->set_model_path("b");
 
   EXPECT_EQ("[\"a\",\"b\"]", GetModelResponseToJson(get_model_paths_response));
+}
+
+TEST_F(InferenceUtilsTest, SetClientDeadline_NoTimeout) {
+  grpc::ClientContext context;
+  std::chrono::system_clock::time_point default_unset_deadline =
+      context.deadline();
+  SetClientDeadline(context, std::nullopt);
+  EXPECT_EQ(context.deadline(), default_unset_deadline)
+      << "Deadline should not be set when timeout is nullopt.";
+}
+
+TEST_F(InferenceUtilsTest, SetClientDeadline_PositiveTimeout) {
+  grpc::ClientContext context;
+  absl::Duration tolerance = absl::Milliseconds(10);
+
+  // Test with 1000ms timeout
+  absl::SetFlag(&FLAGS_inference_model_execution_timeout_ms, 1000);
+  SetClientDeadline(context,
+                    absl::GetFlag(FLAGS_inference_model_execution_timeout_ms));
+  ExpectDeadlineApproximately(context, absl::Milliseconds(1000), tolerance);
+
+  // Test updating timeout to 2000ms
+  absl::SetFlag(&FLAGS_inference_model_execution_timeout_ms, 2000);
+  SetClientDeadline(context,
+                    absl::GetFlag(FLAGS_inference_model_execution_timeout_ms));
+  ExpectDeadlineApproximately(context, absl::Milliseconds(2000), tolerance);
 }
 
 }  // namespace

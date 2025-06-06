@@ -106,7 +106,12 @@ class InferenceServiceImpl final : public InferenceService::Service {
     }
     *(response->mutable_metrics_list()) =
         std::move(*predict_response->mutable_metrics_list());
-    response->set_output(std::move(*predict_response->mutable_output()));
+    if (predict_response->output_data_case() == PredictResponse::kProtoOutput) {
+      response->mutable_proto_output()->Swap(
+          predict_response->mutable_proto_output());
+    } else {
+      response->set_output(std::move(*predict_response->mutable_output()));
+    }
 
     return grpc::Status::OK;
   }

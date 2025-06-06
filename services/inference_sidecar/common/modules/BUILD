@@ -28,6 +28,7 @@ cc_library(
     deps = [
         ":module_interface",
         "//:test_constants",
+        "//proto:inference_payload_cc_proto",
         "//proto:inference_sidecar_cc_proto",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/log:check",

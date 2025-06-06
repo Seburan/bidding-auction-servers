@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@google_privacysandbox_servers_common//third_party:container_deps.bzl", "get_user")
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
@@ -28,6 +27,7 @@ load(
 )
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
+load("//builders/bazel:container_deps.bzl", "get_user")
 
 user = get_user("root")
 
@@ -38,11 +38,15 @@ pkg_files(
         "//services/bidding_service:server",
     ] + select({
         "//:include_all_inference_binaries": [
+            "@onnxruntime_v1_20_0//:inference_sidecar_onnxruntime_v1_20_0",
             "@pytorch_v2_1_1//:artifacts/inference_sidecar_pytorch_v2_1_1",
             "@tensorflow_v2_14_0//:artifacts/inference_sidecar_tensorflow_v2_14_0",
         ],
         "//:inference_noop": [
             "@inference_common//:inference_sidecar_test_target",
+        ],
+        "//:inference_onnxruntime": [
+            "@onnxruntime_v1_20_0//:inference_sidecar_onnxruntime_v1_20_0",
         ],
         "//:inference_pytorch": [
             "@pytorch_v2_1_1//:artifacts/inference_sidecar_pytorch_v2_1_1",
@@ -183,6 +187,27 @@ container_layer(
     ],
 )
 
+copy_file(
+    name = "onnxruntime_so_lib",
+    src = "@onnxruntime_v1_20_0//docker:libonnxruntime.so.1.20.0",
+    out = "libonnxruntime.so.1",
+    is_executable = False,
+    visibility = ["//visibility:private"],
+)
+
+pkg_tar(
+    name = "onnxruntime_lib_artifacts_tar",
+    srcs = [":onnxruntime_so_lib"],
+)
+
+container_layer(
+    name = "onnxruntime_layer",
+    directory = "/lib",
+    tars = [
+        ":onnxruntime_lib_artifacts_tar",
+    ],
+)
+
 # This image target is meant for testing running the server in an enclave using
 # aws proxy to abstract vsock communication.
 container_image(
@@ -198,6 +223,7 @@ container_image(
     layers = [
         ":cddl_lib_layer",
         ":cddl_specs_layer",
+        ":onnxruntime_layer",
         ":root_certs_layer",
         ":server_binary_layer",
         ":byob_runtime_container_layer",
@@ -210,7 +236,6 @@ container_image(
         "@google_privacysandbox_servers_common//src/aws/proxy:libnsm_and_proxify_tar",
         "@google_privacysandbox_servers_common//src/cpio/client_providers/kms_client_provider/aws:kms_binaries",
         ":var_run_runsc_tar_{user}".format(user = user.user),
-        "@google_privacysandbox_servers_common//src/roma/byob/container:gvisor_tar_{user}".format(user = user.user),
     ],
 )
 

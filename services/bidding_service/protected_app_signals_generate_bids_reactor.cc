@@ -403,7 +403,7 @@ ProtectedAppSignalsGenerateBidsReactor::CreateGenerateBidsRequest(
       .metadata = RomaSharedContextWithMetric<google::protobuf::Message>(
           request_, roma_request_context_factory_.Create(), log_context_),
   };
-  request.tags[kRomaTimeoutTag] = roma_timeout_ms_;
+  request.tags[kRomaTimeoutTag] = roma_timeout_duration_;
   return request;
 }
 
@@ -610,7 +610,7 @@ DispatchRequest ProtectedAppSignalsGenerateBidsReactor::
           << "Roma request input to prepared data for ads retrieval: " << *i;
     }
   }
-  request.tags[kRomaTimeoutTag] = roma_timeout_ms_;
+  request.tags[kRomaTimeoutTag] = roma_timeout_duration_;
   return request;
 }
 

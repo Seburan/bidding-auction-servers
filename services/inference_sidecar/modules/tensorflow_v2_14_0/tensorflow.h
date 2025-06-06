@@ -49,6 +49,13 @@ class TensorflowModule final : public ModuleInterface {
 
   const InferenceSidecarRuntimeConfig runtime_config_;
 
+  void PredictFromProtoHelper(const PredictRequest& request,
+                              const RequestContext& request_context,
+                              PredictResponse& predict_response);
+  void PredictFromJsonHelper(const PredictRequest& request,
+                             const RequestContext& request_context,
+                             PredictResponse& predict_response);
+
   // Stores a set of models. It's thread safe.
   std::unique_ptr<ModelStore<tensorflow::SavedModelBundle>> store_;
 };

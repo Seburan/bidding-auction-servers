@@ -22,17 +22,15 @@
 #include <utility>
 #include <vector>
 
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/server_context.h>
-#include <grpcpp/server_posix.h>
-
 #include "absl/base/const_init.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "proto/inference_payload.pb.h"
 #include "proto/inference_sidecar.grpc.pb.h"
 #include "rapidjson/document.h"
 #include "rapidjson/error/en.h"
@@ -49,6 +47,8 @@
 #include "utils/error.h"
 #include "utils/file_util.h"
 #include "utils/inference_error_code.h"
+#include "utils/inference_metric_util.h"
+#include "utils/request_proto_parser.h"
 
 namespace privacy_sandbox::bidding_auction_servers::inference {
 
@@ -154,6 +154,14 @@ std::unique_ptr<InferenceService::StubInterface> CreateInferenceStub() {
   return InferenceService::NewStub(InferenceChannel(Executor()));
 }
 
+void SetClientDeadline(grpc::ClientContext& context,
+                       std::optional<std::int64_t> timeout) {
+  if (timeout.has_value()) {
+    context.set_deadline(
+        absl::ToChronoTime(absl::Now() + absl::Milliseconds(*timeout)));
+  }
+}
+
 absl::Status RegisterModelsFromLocal(const std::vector<std::string>& paths) {
   if (paths.size() == 0 || (paths.size() == 1 && paths[0].empty())) {
     return absl::NotFoundError("No model to register in local disk");
@@ -167,6 +175,8 @@ absl::Status RegisterModelsFromLocal(const std::vector<std::string>& paths) {
     RegisterModelRequest register_request;
     PS_RETURN_IF_ERROR(PopulateRegisterModelRequest(path, register_request));
     grpc::ClientContext context;
+    SetClientDeadline(
+        context, absl::GetFlag(FLAGS_inference_model_registration_timeout_ms));
     RegisterModelResponse register_response;
     grpc::Status status =
         stub->RegisterModel(&context, register_request, &register_response);
@@ -206,6 +216,8 @@ absl::Status RegisterModelsFromBucket(
     }
 
     grpc::ClientContext context;
+    SetClientDeadline(
+        context, absl::GetFlag(FLAGS_inference_model_registration_timeout_ms));
     RegisterModelResponse response;
     grpc::Status status = stub->RegisterModel(&context, request, &response);
 
@@ -216,6 +228,20 @@ absl::Status RegisterModelsFromBucket(
   // TODO(b/316960066): Handles register models response once the proto has been
   // fleshed out.
   return absl::OkStatus();
+}
+
+bool InferenceUseProto() {
+  static bool inference_use_proto =
+      absl::GetFlag(FLAGS_inference_enable_proto_parsing);
+  return inference_use_proto;
+}
+
+inline void SetBatchErrorString(
+    google::scp::roma::FunctionBindingPayload<RomaRequestSharedContext>&
+        wrapper,
+    Error::ErrorType type, absl::string_view description) {
+  wrapper.io_proto.set_output_string(CreateBatchErrorString(
+      Error{.error_type = type, .description = std::string(description)}));
 }
 
 void RunInference(
@@ -229,7 +255,25 @@ void RunInference(
       InferenceService::NewStub(InferenceChannel(executor));
 
   PredictRequest predict_request;
-  predict_request.set_input(payload);
+  PS_VLOG(10) << "FLAGS_inference_enable_proto_parsing: "
+              << InferenceUseProto();
+
+  PredictResponse predict_response;
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  if (InferenceUseProto()) {
+    absl::StatusOr<BatchInferenceRequest> parsed_requests =
+        ConvertJsonToProto(payload, parsing_errors);
+    if (!parsed_requests.ok()) {
+      AddMetric(predict_response, "kInferenceErrorCountByErrorCode", 1,
+                std::string(kInferenceUnableToParseRequest));
+      SetBatchErrorString(wrapper, Error::INPUT_PARSING,
+                          parsed_requests.status().message());
+      return;
+    }
+    *predict_request.mutable_proto_input() = *std::move(parsed_requests);
+  } else {
+    predict_request.set_input(payload);
+  }
 
   absl::StatusOr<std::shared_ptr<RomaRequestContext>> roma_request_context =
       wrapper.metadata.GetRomaRequestContext();
@@ -245,11 +289,30 @@ void RunInference(
   }
 
   grpc::ClientContext context;
-  PredictResponse predict_response;
+  SetClientDeadline(context,
+                    absl::GetFlag(FLAGS_inference_model_execution_timeout_ms));
   grpc::Status rpc_status =
       stub->Predict(&context, predict_request, &predict_response);
   if (rpc_status.ok()) {
-    wrapper.io_proto.set_output_string(predict_response.output());
+    if (InferenceUseProto()) {
+      absl::StatusOr<BatchInferenceResponse> merged_result =
+          MergeBatchResponse(predict_response.proto_output(), parsing_errors);
+      if (merged_result.ok()) {
+        absl::StatusOr<std::string> output_json =
+            ConvertProtoToJson(merged_result.value());
+        if (output_json.ok()) {
+          wrapper.io_proto.set_output_string(output_json.value());
+        } else {
+          SetBatchErrorString(wrapper, Error::OUTPUT_PARSING,
+                              output_json.status().message());
+        }
+      } else {
+        SetBatchErrorString(wrapper, Error::OUTPUT_PARSING,
+                            merged_result.status().message());
+      }
+    } else {
+      wrapper.io_proto.set_output_string(predict_response.output());
+    }
     if (roma_request_context.ok()) {
       RequestLogContext& log_context = (*roma_request_context)->GetLogContext();
 
@@ -276,10 +339,9 @@ void RunInference(
     return;
   }
   absl::Status status = server_common::ToAbslStatus(rpc_status);
-  wrapper.io_proto.set_output_string(CreateBatchErrorString(
-      {.error_type = Error::GRPC,
-       .description = absl::StrCat("Code: ", status.code(),
-                                   ", Message: ", status.message())}));
+  SetBatchErrorString(
+      wrapper, Error::GRPC,
+      absl::StrCat("Code: ", status.code(), ", Message: ", status.message()));
   if (roma_request_context.ok()) {
     RequestLogContext& log_context = (*roma_request_context)->GetLogContext();
     PS_LOG(ERROR, log_context) << "PredictResponse error: " << status.message();
@@ -327,6 +389,8 @@ void GetModelPaths(
   GetModelPathsRequest get_model_paths_request;
 
   grpc::ClientContext context;
+  SetClientDeadline(
+      context, absl::GetFlag(FLAGS_inference_model_paths_request_timeout_ms));
   GetModelPathsResponse get_model_paths_response;
   grpc::Status rpc_status = stub->GetModelPaths(
       &context, get_model_paths_request, &get_model_paths_response);

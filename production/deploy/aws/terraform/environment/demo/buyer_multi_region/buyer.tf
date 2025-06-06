@@ -127,11 +127,15 @@ locals {
     MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = "" # Example: "65536"
     MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = "" # Example: "3000"
 
-    INFERENCE_SIDECAR_BINARY_PATH    = "" # Example: "/server/bin/inference_sidecar_<module_name>"
-    INFERENCE_MODEL_BUCKET_NAME      = "" # Example: "<bucket_name>"
-    INFERENCE_MODEL_CONFIG_PATH      = "" # Example: "model_config.json"
-    INFERENCE_MODEL_FETCH_PERIOD_MS  = "" # Example: "300000"
-    INFERENCE_SIDECAR_RUNTIME_CONFIG = "" # Example:
+    INFERENCE_SIDECAR_BINARY_PATH            = "" # Example: "/server/bin/inference_sidecar_<module_name>"
+    INFERENCE_MODEL_BUCKET_NAME              = "" # Example: "<bucket_name>"
+    INFERENCE_MODEL_CONFIG_PATH              = "" # Example: "model_config.json"
+    INFERENCE_MODEL_FETCH_PERIOD_MS          = "" # Example: "300000"
+    INFERENCE_SIDECAR_RUNTIME_CONFIG         = "" # Example:
+    INFERENCE_MODEL_REGISTRATION_TIMEOUT_MS  = "60000"
+    INFERENCE_MODEL_EXECUTION_TIMEOUT_MS     = "60000"
+    INFERENCE_MODEL_PATHS_REQUEST_TIMEOUT_MS = "60000"
+    INFERENCE_ENABLE_PROTO_PARSING           = false
     # "{
     #    "num_interop_threads": 4,
     #    "num_intraop_threads": 4,
@@ -150,6 +154,7 @@ locals {
     BFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES                 = "10737418240"
 
     ENABLE_CHAFFING        = "false"
+    ENABLE_CHAFFING_V2     = "false"
     ENABLE_PRIORITY_VECTOR = "false"
     # Possible values:
     # NOT_FETCHED: No call to KV server is made. All interest groups are sent to generateBid().

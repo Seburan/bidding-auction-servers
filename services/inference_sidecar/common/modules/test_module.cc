@@ -21,12 +21,14 @@
 #include <unistd.h>
 
 #include <string>
+#include <utility>
 
 #include "absl/log/absl_log.h"
 #include "absl/log/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "modules/module_interface.h"
+#include "proto/inference_payload.pb.h"
 #include "proto/inference_sidecar.pb.h"
 #include "sandboxed_api/util/runfiles.h"
 
@@ -49,7 +51,12 @@ absl::StatusOr<PredictResponse> TestModule::Predict(
   INFERENCE_LOG(INFO, request_context) << kConsentedLogMsg;
   // Returns a placeholder value.
   PredictResponse response;
-  response.set_output("0.57721");
+  if (request.has_proto_input()) {
+    BatchInferenceResponse proto_output;
+    *(response.mutable_proto_output()) = std::move(proto_output);
+  } else {
+    response.set_output("0.57721");
+  }
   return response;
 }
 

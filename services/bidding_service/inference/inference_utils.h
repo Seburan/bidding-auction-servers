@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include <grpcpp/grpcpp.h>
+
 #include "absl/strings/string_view.h"
 #include "proto/inference_sidecar.grpc.pb.h"
 #include "proto/inference_sidecar.pb.h"
@@ -32,7 +34,7 @@ namespace privacy_sandbox::bidding_auction_servers::inference {
 constexpr absl::string_view kInferenceFunctionName = "runInference";
 constexpr absl::string_view kGetModelPathsFunctionName = "getModelPaths";
 
-// Accesses a sandbox exectuor that uses static storage.
+// Accesses a sandbox executor that uses static storage.
 SandboxExecutor& Executor();
 
 // Creates a new stub for inference.
@@ -61,6 +63,10 @@ void GetModelPaths(
 
 // Converts a GetModelPaths response to Json string
 std::string GetModelResponseToJson(const GetModelPathsResponse& response);
+
+// Sets the gRPC deadline in the request context based on timeout flag
+void SetClientDeadline(grpc::ClientContext& context,
+                       std::optional<std::int64_t> timeout);
 
 }  // namespace privacy_sandbox::bidding_auction_servers::inference
 

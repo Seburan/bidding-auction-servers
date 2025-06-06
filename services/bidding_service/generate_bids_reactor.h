@@ -29,6 +29,7 @@
 #include "services/bidding_service/benchmarking/bidding_benchmarking_logger.h"
 #include "services/bidding_service/data/runtime_config.h"
 #include "services/bidding_service/utils/validation.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
 #include "services/common/clients/code_dispatcher/v8_dispatch_client.h"
 #include "services/common/code_dispatch/code_dispatch_reactor.h"
 #include "services/common/metric/server_definition.h"
@@ -51,7 +52,8 @@ class GenerateBidsReactor
       std::unique_ptr<BiddingBenchmarkingLogger> benchmarking_logger,
       server_common::KeyFetcherManagerInterface* key_fetcher_manager,
       CryptoClientWrapperInterface* crypto_client,
-      const BiddingServiceRuntimeConfig& runtime_config);
+      const BiddingServiceRuntimeConfig& runtime_config,
+      AdtechEnrollmentCacheInterface* adtech_attestation_cache = nullptr);
 
   // Initiates the asynchronous execution of the GenerateBidsRequest.
   void Execute() override;
