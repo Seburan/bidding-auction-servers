@@ -33,7 +33,7 @@ locals {
         max_rate_per_instance = null # Null signifies no max.
       }
       backend = {
-        machine_type          = "n2d-standard-64"
+        machine_type          = "n2d-standard-4"
         min_replicas          = 1
         max_replicas          = 5
         zones                 = null # Null signifies no zone preference.
@@ -41,7 +41,7 @@ locals {
         use_intel_amx         = false
       }
       frontend = {
-        machine_type          = "n2d-standard-64"
+        machine_type          = "n2d-standard-4"
         min_replicas          = 1
         max_replicas          = 2
         zones                 = null # Null signifies no zone preference.
