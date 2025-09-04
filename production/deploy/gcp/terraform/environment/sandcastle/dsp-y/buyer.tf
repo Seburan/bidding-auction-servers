@@ -62,7 +62,7 @@ locals {
   buyer_traffic_splits = {
     # default
     "${local.environment}" = {
-      image_tag             = "v4.9.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
+      image_tag             = "v4.10.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
       traffic_weight        = 1000 # traffic_weight for this arm, between 0~1000. default's weight must > 0.
       region_config         = local.default_region_config
       runtime_flag_override = {}
@@ -210,6 +210,21 @@ module "buyer" {
        "prepareDataForAdsRetrievalWasmHelperUrl": "",
        "enablePrivateAggregateReporting": false,
     })
+    # Example for V8:
+    # "{
+    #    "fetchMode": 0,
+    #    "biddingJsPath": "",
+    #    "biddingJsUrl": "https://example.com/generateBid.js",
+    #    "protectedAppSignalsBiddingJsUrl": "https://example.com/generateBid.js",
+    #    "biddingWasmHelperUrl": "",
+    #    "protectedAppSignalsBiddingWasmHelperUrl": "",
+    #    "urlFetchPeriodMs": 13000000,
+    #    "urlFetchTimeoutMs": 30000,
+    #    "enableBuyerDebugUrlGeneration": true,
+    #    "prepareDataForAdsRetrievalJsUrl": "",
+    #    "prepareDataForAdsRetrievalWasmHelperUrl": "",
+    #    "enablePrivateAggregateReporting": false,
+    #  }"
     # Example for BYOB:
     # "{
     #    "fetchMode": 0,
@@ -219,6 +234,17 @@ module "buyer" {
     #    "urlFetchTimeoutMs": 30000,
     #    "enableBuyerDebugUrlGeneration": true,
     #    "enablePrivateAggregateReporting": false,
+    #  }"
+    #
+    # Enable for tracking BYOB executions in a request as a batch.
+    # maxPendingBatchesInPool > QPS/(udf_execution_time * (No. Of executions/req)) to handle bursts.
+    # Eg. For QPS = 650/(8.3*6) = 13.052. Use 2x size to handle more QPS with higher latency and buffer for bursts.
+    # batchStartTimeoutMs is set to ~=acceptable_bidding_p95_latency - udf_execution_time
+    # useSeparateThreadpool = true performs better in internal experiments.
+    # BYOB_BATCHING_CONFIG               = "" # Example: "{
+    #    "batchStartTimeoutMs": 30,
+    #    "maxPendingBatchesInPool": 100,
+    #    "useSeparateThreadpool": true,
     #  }"
     UDF_NUM_WORKERS           = "64" # Example: "64" Must be <=vCPUs in bidding_machine_type.
     JS_WORKER_QUEUE_LEN       = "200" # Example: "200".
@@ -257,14 +283,21 @@ module "buyer" {
     # INFERENCE_MODEL_CONFIG_PATH      = "PLACEHOLDER" # Example: "model_config.json"
     # INFERENCE_MODEL_FETCH_PERIOD_MS  = "PLACEHOLDER" # Example: "300000"
     # INFERENCE_SIDECAR_RUNTIME_CONFIG = "PLACEHOLDER" # Example:
+    # INFERENCE_MODEL_REGISTRATION_TIMEOUT_MS  = "60000"
+    # INFERENCE_MODEL_EXECUTION_TIMEOUT_MS     = "60000"
+    # INFERENCE_MODEL_PATHS_REQUEST_TIMEOUT_MS = "60000"
+    # INFERENCE_ENABLE_PROTO_PARSING           = false
+    # INFERENCE_ENABLE_CANCELLATION_AT_BIDDING = false
+
     # "{
     #    "num_interop_threads": 4,
     #    "num_intraop_threads": 4,
-    #    "module_name": "tensorflow_v2_14_0",
+    #    "module_name": "tensorflow_v2_17_0",
     #    "cpuset": [0, 1, 2, 3],
     #    "tcmalloc_release_bytes_per_sec": 0,
     #    "tcmalloc_max_total_thread_cache_bytes": 0,
     #    "tcmalloc_max_per_cpu_cache_bytes": 0,
+    #    "inference_enable_cancellation_at_sidecar": false,
     # }"
 
     # TCMalloc related config parameters.
@@ -351,6 +384,7 @@ module "buyer_frontend_load_balancing" {
   environment          = local.environment
   operator             = local.buyer_operator
   frontend_ip_address  = module.buyer[local.environment].frontend_address
+  frontend_ipv6_address = module.buyer[local.environment].frontend_ipv6_address
   frontend_domain_name = local.buyer_domain_name
   frontend_dns_zone    = local.frontend_dns_zone
 

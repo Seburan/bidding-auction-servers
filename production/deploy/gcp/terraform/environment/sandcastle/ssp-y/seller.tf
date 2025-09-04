@@ -62,7 +62,7 @@ locals {
   seller_traffic_splits = {
     # default
     "${local.environment}" = {
-      image_tag             = "v4.9.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
+      image_tag             = "v4.10.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
       traffic_weight        = 1000 # traffic_weight for this arm, between 0~1000. default's weight must > 0.
       region_config         = local.default_region_config
       runtime_flag_override = {}
@@ -271,6 +271,9 @@ module "seller" {
     ALLOW_COMPRESSED_AUCTION_CONFIG = "true" # Example: "true"
     ENABLE_PRIORITY_VECTOR          = "true" # Example: "true"
     ENABLE_BUYER_CACHING            = "true" # Example: "true"
+    ENABLE_CHAFFING                 = ""  # Example: "false"
+    ENABLE_CHAFFING_V2              = ""  # Example: "false"
+    SFE_BFE_COMPRESSION_ALGO        = "1" # Provide an integer value: 0 - uncompressed, 1 - DEFLATE, 2 - zstd
 
     ###### [BEGIN] Libcurl parameters.
     #
@@ -342,6 +345,7 @@ module "seller_frontend_load_balancing" {
   environment          = local.environment
   operator             = local.seller_operator
   frontend_ip_address  = module.seller[local.environment].frontend_address
+  frontend_ipv6_address = module.seller[local.environment].frontend_ipv6_address
   frontend_domain_name = local.seller_domain_name
   frontend_dns_zone    = local.frontend_dns_zone
 
