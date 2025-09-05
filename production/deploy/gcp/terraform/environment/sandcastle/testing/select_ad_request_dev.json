@@ -1,0 +1,68 @@
+{
+  "auction_config": {
+    "auction_signals": "{}",
+    "buyer_list": [
+      "https://privacy-sandcastle-dev-dsp-x.web.app",
+      "https://privacy-sandcastle-dev-dsp-y.web.app"
+    ],
+    "buyer_timeout_ms": 100000,
+    "per_buyer_config": {
+      "https://privacy-sandcastle-dev-dsp-x.web.app": {
+        "buyer_debug_id": "Buyer-Debug-ID-Useful-For-Debugging",
+        "buyer_signals": "{}"
+      },
+      "https://privacy-sandcastle-dev-dsp-y.web.app": {
+        "buyer_debug_id": "Buyer-Debug-ID-Useful-For-Debugging",
+        "buyer_signals": "{}"
+      }
+    },
+    "seller": "https://privacy-sandcastle-dev-ssp-x.web.app",
+    "seller_debug_id": "Seller-Debug-ID-Useful-For-Debugging",
+    "seller_signals": "[]"
+  },
+  "client_type": "CLIENT_TYPE_BROWSER",
+  "raw_protected_audience_input": {
+    "generation_id": "A-UUID",
+    "publisher_name": "https://privacy-sandcastle-dev-news.web.app",
+    "raw_buyer_input": {
+      "https://privacy-sandcastle-dev-dsp-x.web.app": {
+        "interest_groups": [
+          {
+            "ad_render_ids": [
+              "test_id-That-Will-Be-Used-To-Generated-Ad-Render-Id-In-GenerateBid"
+            ],
+            "bidding_signals_keys": [
+              "Sample-key-To-Be-Used-To-Lookup-Real-Time-Signals-From-Buyer-KV"
+            ],
+            "browser_signals": {
+              "bid_count": "1",
+              "join_count": "2",
+              "prev_wins": "[]"
+            },
+            "name": "Test-Interest-Group-DSP-X",
+            "user_bidding_signals": "[]"
+          }
+        ]
+      },
+      "https://privacy-sandcastle-dev-dsp-y.web.app": {
+        "interest_groups": [
+          {
+            "ad_render_ids": [
+              "test_id-That-Will-Be-Used-To-Generated-Ad-Render-Id-In-GenerateBid"
+            ],
+            "bidding_signals_keys": [
+              "Sample-key-To-Be-Used-To-Lookup-Real-Time-Signals-From-Buyer-KV"
+            ],
+            "browser_signals": {
+              "bid_count": "1",
+              "join_count": "2",
+              "prev_wins": "[]"
+            },
+            "name": "Test-Interest-Group-DSP-Y",
+            "user_bidding_signals": "[]"
+          }
+        ]
+      }
+    }
+  }
+}

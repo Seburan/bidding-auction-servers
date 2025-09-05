@@ -62,7 +62,7 @@ locals {
   seller_traffic_splits = {
     # default
     "${local.environment}" = {
-      image_tag             = "v4.9.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
+      image_tag             = "v4.10.0"   # Image built and uploaded by production/packaging/build_and_test_all_in_docker
       traffic_weight        = 1000 # traffic_weight for this arm, between 0~1000. default's weight must > 0.
       region_config         = local.default_region_config
       runtime_flag_override = {}
@@ -160,8 +160,8 @@ module "seller" {
     ENABLE_AUCTION_SERVICE_BENCHMARK = "false"            # Example: "false"
     GET_BID_RPC_TIMEOUT_MS           = "60000"            # Example: "60000"
     SCORE_ADS_RPC_TIMEOUT_MS         = "60000"            # Example: "60000"
-    SELLER_ORIGIN_DOMAIN             = "https://privacy-sandbox-demos-ssp-y.dev"            # Example: "https://sellerorigin.com"
-    K_ANON_API_KEY                   = "PLACEHOLDER" # API Key used to query k-anon service.
+    SELLER_ORIGIN_DOMAIN             = "https://privacy-sandcastle-dev-ssp-y.web.app"            # Example: "https://sellerorigin.com"
+    # K_ANON_API_KEY                   = "" # API Key used to query k-anon service.
 
     # [BEGIN] Trusted KV real time signal fetching params
     ENABLE_TKV_V2_BROWSER                  = "false"            # Example: "false", Whether or not to use a trusted KV for browser clients. (Android clients traffic always need a trusted KV.)
@@ -171,16 +171,16 @@ module "seller" {
     # [END] Trusted KV real time signal fetching params
 
     # [BEGIN] Untrusted KV real time signal fetching params
-    KEY_VALUE_SIGNALS_HOST = "https://privacy-sandbox-demos-ssp-y.dev/ssp/usecase/bidding-and-auction/ssp-y/service/kv" # Example: "https://keyvaluesignals.com/trusted-signals"
+    KEY_VALUE_SIGNALS_HOST = "https://privacy-sandcastle-dev-ssp-y.web.app/ssp/usecase/bidding-and-auction/ssp-y/service/kv" # Example: "https://keyvaluesignals.com/trusted-signals"
     # [END] Untrusted KV real time signal fetching params
 
     # BUYER_SERVER_HOSTS                  = "{ \"https://privacy-sandbox-demos-dsp-x.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-x:443\", \"cloudPlatform\": \"GCP\" }, \"https://privacy-sandbox-demos-dsp-y.dev\": { \"url\": \"dns:///bfe.privacy-sandbox-demos-dsp-y:443\", \"cloudPlatform\": \"GCP\" } }" # Example: "{ \"https://example-bidder.com\": { \"url\": \"dns:///bidding-service-host:443\", \"cloudPlatform\": \"GCP\" } }"
     BUYER_SERVER_HOSTS                  = jsonencode({
-      "https://privacy-sandbox-demos-dsp-x.dev" = {
+      "https://privacy-sandcastle-dev-dsp-x.web.app" = {
         "url"           = "dns:///dsp-x-dev.bfe.privacy-sandbox-demos-dsp-x.dev:443",
         "cloudPlatform" = "GCP"
       },
-      "https://privacy-sandbox-demos-dsp-y.dev" = {
+      "https://privacy-sandcastle-dev-dsp-y.web.app" = {
         "url"           = "dns:///dsp-y-dev.bfe.privacy-sandbox-demos-dsp-y.dev:443",
         "cloudPlatform" = "GCP"
       }
@@ -196,15 +196,15 @@ module "seller" {
     SELLER_CODE_FETCH_CONFIG            = jsonencode({
         "fetchMode": 0,
         "auctionJsPath": "",
-        "auctionJsUrl": "https://privacy-sandbox-demos-ssp-y.dev/js/ssp/usecase/bidding-and-auction/ssp-y/decision-logic.js",
+        "auctionJsUrl": "https://privacy-sandcastle-dev-ssp-y.web.app/js/ssp/usecase/bidding-and-auction/ssp-y/decision-logic.js",
         "urlFetchPeriodMs": 13000000,
         "urlFetchTimeoutMs": 30000,
         "enableSellerDebugUrlGeneration": true,
         "enableReportResultUrlGeneration": true,
         "enableReportWinUrlGeneration": true,
         "enablePrivateAggregateReporting": false,
-        "buyerReportWinJsUrls": {"https://privacy-sandbox-demos-dsp-x.dev":"https://privacy-sandbox-demos-dsp-x.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js",
-                                 "https://privacy-sandbox-demos-dsp-y.dev":"https://privacy-sandbox-demos-dsp-y.dev/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-y.js"
+        "buyerReportWinJsUrls": {"https://privacy-sandcastle-dev-dsp-x.web.app":"https://privacy-sandcastle-dev-dsp-x.web.app/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-x.js",
+                                 "https://privacy-sandcastle-dev-dsp-y.web.app":"https://privacy-sandcastle-dev-dsp-y.web.app/js/dsp/usecase/bidding-and-auction/bidding-logic-dsp-y.js"
                                  }
         # "protectedAppSignalsBuyerReportWinJsUrls": {"https://buyerA_origin.com":"https://buyerA.com/generateBid.js"}
      })
@@ -271,6 +271,9 @@ module "seller" {
     ALLOW_COMPRESSED_AUCTION_CONFIG = "true" # Example: "true"
     ENABLE_PRIORITY_VECTOR          = "true" # Example: "true"
     ENABLE_BUYER_CACHING            = "true" # Example: "true"
+    ENABLE_CHAFFING                 = "false"  # Example: "false"
+    ENABLE_CHAFFING_V2              = "false"  # Example: "false"
+    SFE_BFE_COMPRESSION_ALGO        = "1" # Provide an integer value: 0 - uncompressed, 1 - DEFLATE, 2 - zstd
 
     ###### [BEGIN] Libcurl parameters.
     #
@@ -342,6 +345,7 @@ module "seller_frontend_load_balancing" {
   environment          = local.environment
   operator             = local.seller_operator
   frontend_ip_address  = module.seller[local.environment].frontend_address
+  frontend_ipv6_address = module.seller[local.environment].frontend_ipv6_address
   frontend_domain_name = local.seller_domain_name
   frontend_dns_zone    = local.frontend_dns_zone
 
