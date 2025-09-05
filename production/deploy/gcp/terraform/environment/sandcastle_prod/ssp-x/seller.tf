@@ -271,6 +271,9 @@ module "seller" {
     ALLOW_COMPRESSED_AUCTION_CONFIG = "true" # Example: "true"
     ENABLE_PRIORITY_VECTOR          = "true" # Example: "true"
     ENABLE_BUYER_CACHING            = "true" # Example: "true"
+    ENABLE_CHAFFING                 = "false"  # Example: "false"
+    ENABLE_CHAFFING_V2              = "false"  # Example: "false"
+    SFE_BFE_COMPRESSION_ALGO        = "1" # Provide an integer value: 0 - uncompressed, 1 - DEFLATE, 2 - zstd
 
     ###### [BEGIN] Libcurl parameters.
     #
@@ -342,6 +345,7 @@ module "seller_frontend_load_balancing" {
   environment          = local.environment
   operator             = local.seller_operator
   frontend_ip_address  = module.seller[local.environment].frontend_address
+  frontend_ipv6_address = module.seller[local.environment].frontend_ipv6_address
   frontend_domain_name = local.seller_domain_name
   frontend_dns_zone    = local.frontend_dns_zone
 
