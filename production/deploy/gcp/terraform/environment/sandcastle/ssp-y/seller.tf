@@ -161,7 +161,7 @@ module "seller" {
     GET_BID_RPC_TIMEOUT_MS           = "60000"            # Example: "60000"
     SCORE_ADS_RPC_TIMEOUT_MS         = "60000"            # Example: "60000"
     SELLER_ORIGIN_DOMAIN             = "https://privacy-sandcastle-dev-ssp-y.web.app"            # Example: "https://sellerorigin.com"
-    K_ANON_API_KEY                   = "" # API Key used to query k-anon service.
+    # K_ANON_API_KEY                   = "" # API Key used to query k-anon service.
 
     # [BEGIN] Trusted KV real time signal fetching params
     ENABLE_TKV_V2_BROWSER                  = "false"            # Example: "false", Whether or not to use a trusted KV for browser clients. (Android clients traffic always need a trusted KV.)
@@ -271,8 +271,8 @@ module "seller" {
     ALLOW_COMPRESSED_AUCTION_CONFIG = "true" # Example: "true"
     ENABLE_PRIORITY_VECTOR          = "true" # Example: "true"
     ENABLE_BUYER_CACHING            = "true" # Example: "true"
-    ENABLE_CHAFFING                 = ""  # Example: "false"
-    ENABLE_CHAFFING_V2              = ""  # Example: "false"
+    ENABLE_CHAFFING                 = "false"  # Example: "false"
+    ENABLE_CHAFFING_V2              = "false"  # Example: "false"
     SFE_BFE_COMPRESSION_ALGO        = "1" # Provide an integer value: 0 - uncompressed, 1 - DEFLATE, 2 - zstd
 
     ###### [BEGIN] Libcurl parameters.
